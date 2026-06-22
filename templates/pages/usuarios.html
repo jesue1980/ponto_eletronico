@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4">
+      <h3 class="fw-bold">Usuários do Sistema</h3>
+      <div class="text-muted">Cadastro de usuários com login, senha, perfil e status de acesso.</div>
+    </div>
+    {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="card"><div class="card-body">
+          <h5>Novo usuário</h5>
+          <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+            <input class="form-control" name="nome" placeholder="Nome completo" required>
+            <input class="form-control" name="cpf" placeholder="CPF" required>
+            <input class="form-control" name="login" placeholder="Login" required>
+            <input class="form-control" type="password" name="senha" placeholder="Senha" required>
+            <select class="form-select" name="perfil" required>
+              <option value="">Perfil de acesso</option>
+              <option value="RH Local">RH Local</option>
+              <option value="Chefia Imediata">Chefia Imediata</option>
+              <option value="Secretário da Pasta">Secretário da Pasta</option>
+              <option value="Funcionário">Funcionário</option>
+            </select>
+            <select class="form-select" name="funcionario_id">
+              <option value="">Funcionário vinculado</option>
+              {% for f in funcionarios_rows %}
+              <option value="{{ f.id }}">{{ f.nome }} - {{ f.matricula }}</option>
+              {% endfor %}
+            </select>
+            <select class="form-select" name="ativo" required>
+              <option value="1">Ativo</option>
+              <option value="0">Inativo</option>
+            </select>
+            <button class="btn btn-primary">Cadastrar usuário</button>
+          </form>
+        </div></div>
+      </div>
+      <div class="col-lg-8">
+        <div class="card"><div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Nome</th><th>CPF</th><th>Login</th><th>Funcionário vinculado</th><th>Perfil</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for u in rows %}
+              <tr>
+                <td>{{ u.nome }}</td>
+                <td>{{ u.cpf or '-' }}</td>
+                <td>{{ u.login }}</td>
+                <td>{{ u.funcionario_nome or '-' }}</td>
+                <td>{{ u.perfil }}</td>
+                <td>{% if u.ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+{% endblock %}

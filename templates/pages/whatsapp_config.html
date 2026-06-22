@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4">
+  <h3 class="fw-bold">WhatsApp</h3>
+  <div class="text-muted">Configuração da Evolution API com modo teste e produção.</div>
+</div>
+
+{% if resultado %}
+<div class="alert alert-{{ resultado.classe }} mb-3">{{ resultado.texto }}</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" class="d-grid gap-3">
+          {{ csrf_input()|safe }}
+          <input type="hidden" name="acao" value="salvar">
+
+          <div>
+            <label class="form-label mb-1">URL da Evolution API</label>
+            <input class="form-control" name="evolution_url" value="{{ config.evolution_url or '' }}" placeholder="https://sua-evolution-api.com">
+          </div>
+
+          <div>
+            <label class="form-label mb-1">API Key</label>
+            <input class="form-control" name="api_key" value="{{ config.api_key or '' }}" placeholder="Chave da API">
+          </div>
+
+          <div>
+            <label class="form-label mb-1">Nome da instância</label>
+            <input class="form-control" name="instancia" value="{{ config.instancia or '' }}" placeholder="minha-instancia">
+          </div>
+
+          <div>
+            <label class="form-label mb-1">Modo de envio</label>
+            <select class="form-select" name="modo_envio">
+              <option value="teste" {% if config.modo_envio == 'teste' %}selected{% endif %}>Teste</option>
+              <option value="producao" {% if config.modo_envio == 'producao' %}selected{% endif %}>Produção</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label mb-1">Número de teste com DDD</label>
+            <input class="form-control" name="numero_teste" value="{{ config.numero_teste or '' }}" placeholder="66999178577">
+          </div>
+
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary" type="submit" name="acao" value="salvar">Salvar configuração</button>
+            <button class="btn btn-outline-primary" type="submit" name="acao" value="conectar_whatsapp">Conectar WhatsApp</button>
+            <button class="btn btn-outline-secondary" type="submit" name="acao" value="verificar_status">Verificar status</button>
+            <button class="btn btn-outline-success" type="submit" name="acao" value="testar_envio">Testar envio</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="mb-3">Status da conexão</h5>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <span class="badge bg-secondary text-uppercase">{{ status_label }}</span>
+          <span class="badge bg-info text-dark">Modo: {{ config.modo_envio }}</span>
+          {% if config.qrcode_gerado_em %}<span class="badge bg-light text-dark">QR gerado em {{ config.qrcode_gerado_em }}</span>{% endif %}
+        </div>
+        <p class="text-muted mb-2">No modo teste, todas as mensagens vão somente para o número configurado no painel.</p>
+        <p class="text-muted mb-0">No modo produção, o destino é o WhatsApp cadastrado do funcionário ou da chefia vinculada.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="mb-3">Pareamento</h5>
+        {% if config.qrcode %}
+          {% if config.qrcode.startswith('data:image') %}
+          <div class="text-center">
+            <img
+              alt="QR Code do WhatsApp"
+              class="img-fluid border rounded bg-white p-2"
+              style="max-width: 320px;"
+              src="{{ config.qrcode }}"
+            >
+          </div>
+          {% else %}
+          <div class="alert alert-light mb-0">
+            <div class="small text-muted mb-1">Código de pareamento</div>
+            <code class="text-break">{{ config.qrcode }}</code>
+          </div>
+          {% endif %}
+        {% else %}
+          <div class="alert alert-light mb-0">Nenhum QR Code gerado ainda.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

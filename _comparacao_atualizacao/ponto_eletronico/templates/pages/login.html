@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+          <div class="card"><div class="card-body p-4">
+            <h3 class="fw-bold mb-1">Ponto Eletrônico REP-P</h3>
+            <p class="text-muted">Controle profissional de jornada com GPS, selfie e comprovante.</p>
+            {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+            <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+              <input class="form-control form-control-lg" name="login" placeholder="Login" required autofocus>
+              <input class="form-control form-control-lg" name="senha" type="password" placeholder="Senha" required>
+              <button class="btn btn-primary btn-lg">Entrar</button>
+            </form>
+            <div class="small text-muted mt-3">
+              Admin: admin / Admin@2026<br>Gestor: gestor / Gestor@2026<br>RH: rh / RH@2026<br>Funcionário: funcionario / Funcionario@2026
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+{% endblock %}

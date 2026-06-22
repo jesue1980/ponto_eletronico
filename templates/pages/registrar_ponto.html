@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="page-hero">
+  <div>
+    <div class="hero-kicker">Registro individual</div>
+    <h3 class="fw-bold mb-1">Registrar ponto</h3>
+    <div class="text-muted">GPS e selfie sao obrigatorios. O sistema validara a cerca geografica antes de gravar.</div>
+  </div>
+</div>
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+{% if not funcionario %}
+<div class="alert alert-danger">Seu login nao esta vinculado a um funcionario ativo. Procure o Administrador Principal ou o RH Local.</div>
+{% else %}
+<form method="post" id="pontoForm" class="row g-3">{{ csrf_input()|safe }}
+  <div class="col-lg-5">
+    <div class="card h-100"><div class="card-body">
+      <input type="hidden" name="funcionario_id" value="{{ funcionario.id }}">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="kpi-icon"><i class="bi bi-person-check"></i></div>
+        <div>
+          <div class="text-muted small">Funcionario identificado pelo login</div>
+          <strong>{{ funcionario.nome }}</strong>
+        </div>
+      </div>
+      <div class="stat-tile p-3 rounded mb-3">
+        <div class="small text-muted">Matricula {{ funcionario.matricula }} · Jornada {{ funcionario.jornada_nome }}</div>
+        <div class="small text-muted">
+          {{ funcionario.entrada }}
+          {% if funcionario.saida_almoco %} / {{ funcionario.saida_almoco }} - {{ funcionario.retorno_almoco }}{% endif %}
+          / {{ funcionario.saida_final }}
+        </div>
+      </div>
+      <div class="stat-tile p-3 rounded mb-3">
+        <div class="small text-muted">Proxima marcacao</div>
+        <strong class="fs-4">{{ labels[proximo_tipo] }}</strong>
+      </div>
+      <input type="hidden" name="tipo" value="{{ proximo_tipo }}">
+      <div class="small text-muted mb-3">A proxima batida e calculada automaticamente pelas marcacoes do dia e pela jornada cadastrada.</div>
+      <label class="form-label">Justificativa para batida fora do horario</label>
+      <textarea class="form-control mb-3" name="justificativa_fora_horario" rows="3" placeholder="Obrigatoria fora do horario. A batida ficara pendente e so contara se a chefia aprovar."></textarea>
+      <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> Apos salvar, sera emitido comprovante digital com NSR, data/hora, GPS, dispositivo, IP e hash.</div>
+    </div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <div><h5 class="fw-bold mb-1">Validacao por camera</h5><div class="text-muted small">Mantenha o rosto centralizado antes de registrar.</div></div>
+        <span class="badge bg-info text-dark"><i class="bi bi-camera-video"></i> Ao vivo</span>
+      </div>
+      <video id="video" class="camera-preview mb-3" autoplay playsinline muted></video>
+      <canvas id="canvas" class="d-none"></canvas>
+      <input type="hidden" name="latitude" id="latitude">
+      <input type="hidden" name="longitude" id="longitude">
+      <input type="hidden" name="precisao" id="precisao">
+      <input type="hidden" name="geo_primeira_leitura_em" id="geo_primeira_leitura_em">
+      <input type="hidden" name="geo_ultima_leitura_em" id="geo_ultima_leitura_em">
+      <input type="hidden" name="geo_tempo_validacao_seg" id="geo_tempo_validacao_seg">
+      <input type="hidden" name="geo_qtd_leituras" id="geo_qtd_leituras">
+      <input type="hidden" name="geo_falha_permissao" id="geo_falha_permissao" value="0">
+      <input type="hidden" name="geo_mock_suspeito" id="geo_mock_suspeito" value="0">
+      <input type="hidden" name="geo_leituras_json" id="geo_leituras_json">
+      <input type="hidden" name="selfie" id="selfie">
+      <input type="hidden" name="dispositivo_id" id="dispositivo_id">
+      <div class="row g-2 mb-3">
+        <div class="col-md-4"><div class="stat-tile status-pill p-3 small">GPS<br><strong id="gpsStatus">capturando...</strong></div></div>
+        <div class="col-md-4"><div class="stat-tile status-pill p-3 small">Camera<br><strong id="camStatus">iniciando...</strong></div></div>
+        <div class="col-md-4"><div class="stat-tile status-pill p-3 small">Dispositivo<br><strong id="deviceStatus">registrado</strong></div></div>
+      </div>
+      <button class="btn btn-success btn-lg w-100" type="submit" id="registrarBtn" disabled><i class="bi bi-fingerprint"></i> Registrar ponto agora</button>
+      <div class="alert alert-warning mt-3 mb-0 small" id="geoBlockMessage">Ponto bloqueado: a localização precisa permanecer ativa e válida durante todo o processo de verificação.</div>
+    </div></div>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4">
+  <h3 class="fw-bold">Analisar justificativa</h3>
+  <div class="text-muted">A decisão exige motivo obrigatório e fica registrada no sistema.</div>
+</div>
+
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        {% if ajuste.foto_base_path %}
+          <img class="img-fluid rounded mb-3" src="{{ url_for('foto_facial_base', funcionario_id=ajuste.funcionario_id) }}" alt="Foto do funcionario">
+        {% endif %}
+        <h5>{{ ajuste.funcionario }}</h5>
+        <div class="text-muted small">Matricula: {{ ajuste.matricula }}</div>
+        <div class="text-muted small">Cargo: {{ ajuste.cargo or '-' }}</div>
+        <div class="text-muted small">Chefia: {{ ajuste.chefia or '-' }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-4"><div class="text-muted small">Data/hora</div><strong>{{ ajuste.data_hora_solicitada }}</strong></div>
+          <div class="col-md-4"><div class="text-muted small">Tipo</div><strong>{{ labels[ajuste.tipo] }}</strong></div>
+          <div class="col-md-4"><div class="text-muted small">Status</div><strong>{{ ajuste.status }}</strong></div>
+          <div class="col-12"><div class="text-muted small">Justificativa</div><p class="mb-0">{{ ajuste.justificativa }}</p></div>
+          <div class="col-12"><div class="text-muted small">Anexo</div>{% if ajuste.anexo_path %}<a href="{{ url_for('anexo_ajuste', filename=ajuste.anexo_path.replace('anexos_ajustes\\', '').replace('anexos_ajustes/', '')) }}" target="_blank">Abrir anexo</a>{% else %}-{% endif %}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5>Decisão</h5>
+        <form method="post" class="d-grid gap-3">
+          {{ csrf_input()|safe }}
+          <textarea class="form-control" name="motivo" rows="3" placeholder="Motivo da decisão" required></textarea>
+          <div class="d-flex gap-2">
+            <button class="btn btn-success" name="decisao" value="aprovado">Aprovar</button>
+            <button class="btn btn-outline-danger" name="decisao" value="rejeitado">Negar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5>Histórico da marcação</h5>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Data/hora</th><th>Tipo</th><th>Origem</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for m in historico %}
+              <tr><td>{{ m.data_hora }}</td><td>{{ labels[m.tipo] }}</td><td>{{ m.origem }}</td><td>{{ m.status_aprovacao }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

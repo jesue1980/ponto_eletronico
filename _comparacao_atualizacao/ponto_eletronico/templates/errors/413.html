@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container py-5">
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <h1 class="fw-bold mb-3">Arquivo muito grande</h1>
+      <p class="text-muted mb-4">O arquivo enviado ultrapassa o limite permitido para o sistema.</p>
+      <a class="btn btn-primary" href="{{ request.referrer or url_for('dashboard') }}">Voltar</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="page-hero">
+  <div>
+    <div class="hero-kicker">Painel operacional</div>
+    <h3 class="fw-bold mb-1">Dashboard</h3>
+    <div class="text-muted">Indicadores de ponto, banco de horas e conformidade REP-P.</div>
+  </div>
+  <a class="btn btn-primary btn-lg" href="{{ url_for('registrar_ponto') }}"><i class="bi bi-fingerprint"></i> Registrar ponto</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body d-flex justify-content-between gap-3"><div><div class="text-muted small">Funcionarios</div><h3>{{ funcionarios_count }}</h3></div><div class="kpi-icon"><i class="bi bi-people"></i></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body d-flex justify-content-between gap-3"><div><div class="text-muted small">Marcacoes hoje</div><h3>{{ marcacoes_hoje }}</h3></div><div class="kpi-icon"><i class="bi bi-clock-history"></i></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body d-flex justify-content-between gap-3"><div><div class="text-muted small">Banco de horas</div><h3>{{ fmt(saldo) }}</h3></div><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body d-flex justify-content-between gap-3"><div><div class="text-muted small">Ajustes pendentes</div><h3>{{ pendentes }}</h3></div><div class="kpi-icon"><i class="bi bi-exclamation-diamond"></i></div></div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-4">
+    <a class="card metric text-decoration-none d-block" data-bs-toggle="collapse" href="#semPontoCollapse" role="button" aria-expanded="false" aria-controls="semPontoCollapse">
+      <div class="card-body d-flex justify-content-between gap-3 align-items-center">
+        <div>
+          <div class="text-muted small">Funcionarios sem ponto hoje</div>
+          <h3 class="mb-0">{{ funcionarios_sem_ponto_count }}</h3>
+        </div>
+        <div class="kpi-icon"><i class="bi bi-person-x"></i></div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="collapse mb-3" id="semPontoCollapse">
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <div>
+          <h5 class="fw-bold mb-1">Funcionarios sem marcação hoje</h5>
+          <div class="text-muted small">Lista de ativos sem registro de ponto no dia atual.</div>
+        </div>
+        <span class="badge bg-secondary">{{ funcionarios_sem_ponto_count }}</span>
+      </div>
+      {% if funcionarios_sem_ponto_hoje %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Matricula</th>
+              <th>Cargo</th>
+              <th>Chefia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in funcionarios_sem_ponto_hoje %}
+            <tr>
+              <td>{{ f.nome }}</td>
+              <td>{{ f.matricula or '-' }}</td>
+              <td>{{ f.cargo or '-' }}</td>
+              <td>{{ f.chefia_nome or '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-success mb-0">Todos os funcionários ativos já registraram ponto hoje.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="command-ring-grid mb-3">
+  <div class="holo-gauge" style="--value: 82">
+    <div class="holo-gauge-core"><strong>{{ funcionarios_count }}</strong><span>Equipe</span></div>
+  </div>
+  <div class="holo-gauge" style="--value: 64">
+    <div class="holo-gauge-core"><strong>{{ marcacoes_hoje }}</strong><span>Hoje</span></div>
+  </div>
+  <div class="energy-panel">
+    <div class="energy-header"><span>Fluxo operacional</span><strong>Online</strong></div>
+    <div class="energy-bars">
+      <i style="--h: 34%"></i><i style="--h: 62%"></i><i style="--h: 48%"></i><i style="--h: 78%"></i><i style="--h: 56%"></i><i style="--h: 92%"></i><i style="--h: 68%"></i><i style="--h: 84%"></i>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div><h5 class="fw-bold mb-1">Resumo mensal</h5><div class="text-muted small">Visao executiva das principais ocorrencias.</div></div>
+        <span class="badge bg-info text-dark">Tempo real</span>
+      </div>
+      <div class="dashboard-chart mb-3">
+        <div class="chart-bar"><span style="height: 78%"></span><small>Extras<br><strong>{{ fmt(extras) }}</strong></small></div>
+        <div class="chart-bar"><span style="height: 46%"></span><small>Atrasos<br><strong>{{ fmt(atrasos) }}</strong></small></div>
+        <div class="chart-bar"><span style="height: 28%"></span><small>Faltas<br><strong>{{ faltas }}</strong></small></div>
+        <div class="chart-bar"><span style="height: 92%"></span><small>REP-P<br><strong>Ativo</strong></small></div>
+      </div>
+      <div class="row text-center g-3">
+        <div class="col-6 col-md-3"><div class="stat-tile p-3 rounded">Extras<br><strong>{{ fmt(extras) }}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="stat-tile p-3 rounded">Atrasos<br><strong>{{ fmt(atrasos) }}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="stat-tile p-3 rounded">Faltas<br><strong>{{ faltas }}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="stat-tile p-3 rounded">Conformidade<br><strong>REP-P</strong></div></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card h-100"><div class="card-body">
+      <h5 class="fw-bold mb-3">Atalhos rapidos</h5>
+      <div class="quick-actions mb-4">
+        <a class="btn btn-primary" href="{{ url_for('registrar_ponto') }}"><i class="bi bi-fingerprint"></i> Registrar ponto</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('relatorios') }}"><i class="bi bi-bar-chart"></i> Abrir relatorios</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('ajustes') }}"><i class="bi bi-pencil-square"></i> Solicitar ajuste</a>
+      </div>
+      <h6 class="fw-bold">Recursos ativos</h6>
+      <div class="d-grid gap-2">
+        <div class="stat-tile p-2 rounded"><i class="bi bi-geo-alt text-info"></i> GPS obrigatorio e cerca geografica</div>
+        <div class="stat-tile p-2 rounded"><i class="bi bi-camera text-info"></i> Selfie no registro</div>
+        <div class="stat-tile p-2 rounded"><i class="bi bi-shield-lock text-info"></i> Historico imutavel com hash</div>
+        <div class="stat-tile p-2 rounded"><i class="bi bi-file-earmark-arrow-down text-info"></i> AFD, AEJ, PDF e Excel</div>
+      </div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

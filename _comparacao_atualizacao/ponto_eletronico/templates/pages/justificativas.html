@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Justificativas padrão</h3><div class="text-muted">Opções usadas nas solicitações de ajuste.</div></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body"><h5>Nova justificativa</h5>
+        <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <input class="form-control" name="descricao" placeholder="Descrição" required>
+          <button class="btn btn-primary">Salvar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Descrição</th><th>Status</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td>{{ r.descricao }}</td><td>{% if r.ativa %}<span class="badge bg-success">Ativa</span>{% else %}<span class="badge bg-secondary">Inativa</span>{% endif %}</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+{% endblock %}

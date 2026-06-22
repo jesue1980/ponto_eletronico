@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="totem-screen">
+  <section class="totem-camera">
+    <video id="totemVideo" autoplay playsinline muted></video>
+    <canvas id="totemCanvas" class="d-none"></canvas>
+    <div id="totemFlash" class="totem-flash"></div>
+  </section>
+
+  <aside class="totem-panel">
+    <div>
+      <div class="totem-kicker">Modo Totem Facial</div>
+      <h1>Totem Facial</h1>
+      <p class="totem-status" id="totemStatus">Iniciando camera e GPS...</p>
+    </div>
+
+    <form id="totemForm" class="totem-form">
+      {{ csrf_input()|safe }}
+      <input type="hidden" name="selfie" id="totemSelfie">
+      <input type="hidden" name="dispositivo_id" id="totemDeviceId">
+      <input type="hidden" name="latitude" id="totemLatitude">
+      <input type="hidden" name="longitude" id="totemLongitude">
+      <input type="hidden" name="precisao" id="totemPrecisao">
+
+      <label for="totemId">Totem autorizado</label>
+      <select id="totemId" name="totem_id" required>
+        <option value="">Selecione o totem</option>
+        {% for t in totens_rows %}
+        <option value="{{ t.id }}">{{ t.nome }} - {{ t.local_nome or 'Sem local' }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="totemFuncionario">Funcionario identificado nesta etapa</label>
+      <select id="totemFuncionario" name="funcionario_id" required>
+        <option value="">Aguardando identificacao</option>
+        {% for f in funcionarios_rows %}
+        <option value="{{ f.id }}">{{ f.nome }} - {{ f.matricula }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <div id="totemResultado" class="totem-result" aria-live="polite">
+      <strong>Aguardando identificacao</strong>
+      <span id="totemDataHora">--/--/---- --:--:--</span>
+      <small id="totemDetalhe">O registro sera automatico quando camera, GPS, totem e funcionario estiverem prontos.</small>
+    </div>
+  </aside>
+</main>
+
+<script>
+(() => {
+  const video = document.getElementById("totemVideo");
+  const canvas = document.getElementById("totemCanvas");
+  const form = document.getElementById("totemForm");
+  const selfie = document.getElementById("totemSelfie");
+  const deviceInput = document.getElementById("totemDeviceId");
+  const latitudeInput = document.getElementById("totemLatitude");
+  const longitudeInput = document.getElementById("totemLongitude");
+  const precisaoInput = document.getElementById("totemPrecisao");
+  const totemSelect = document.getElementById("totemId");
+  const funcionarioSelect = document.getElementById("totemFuncionario");
+  const status = document.getElementById("totemStatus");
+  const resultado = document.getElementById("totemResultado");
+  const dataHora = document.getElementById("totemDataHora");
+  const detalhe = document.getElementById("totemDetalhe");
+  const flash = document.getElementById("totemFlash");
+  let stream = null;
+  let cameraReady = false;
+  let gpsReady = false;
+  let registering = false;
+  let lastRegistrationAt = 0;
+
+  const deviceKey = "ponto_repp_totem_device_id";
+  let deviceId = localStorage.getItem(deviceKey);
+  if (!deviceId) {
+    deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+    localStorage.setItem(deviceKey, deviceId);
+  }
+  deviceInput.value = deviceId;
+
+  if (totemSelect.options.length === 2) {
+    totemSelect.selectedIndex = 1;
+  }
+
+  function beep() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.08;
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      setTimeout(() => {
+        oscillator.stop();
+        context.close();
+      }, 180);
+    } catch (_error) {
+      flash.classList.add("active");
+      setTimeout(() => flash.classList.remove("active"), 600);
+    }
+  }
+
+  function updateReadiness() {
+    if (!cameraReady) {
+      status.textContent = "Aguardando camera frontal...";
+      return;
+    }
+    if (!gpsReady) {
+      status.textContent = "Aguardando GPS do tablet...";
+      return;
+    }
+    if (!totemSelect.value) {
+      status.textContent = "Selecione o totem autorizado neste dispositivo.";
+      return;
+    }
+    if (!funcionarioSelect.value) {
+      status.textContent = "Aguardando identificacao facial do funcionario.";
+      return;
+    }
+    status.textContent = "Identificacao pronta. Registrando automaticamente...";
+    autoRegister();
+  }
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false
+      });
+      video.srcObject = stream;
+      cameraReady = true;
+      updateReadiness();
+    } catch (error) {
+      console.error("Erro ao abrir camera do totem", error);
+      status.textContent = "Nao foi possivel abrir a camera. Verifique a permissao do navegador.";
+    }
+  }
+
+  function startGps() {
+    if (!navigator.geolocation) {
+      status.textContent = "GPS indisponivel neste navegador.";
+      return;
+    }
+    navigator.geolocation.watchPosition(pos => {
+      latitudeInput.value = pos.coords.latitude;
+      longitudeInput.value = pos.coords.longitude;
+      precisaoInput.value = pos.coords.accuracy;
+      gpsReady = true;
+      updateReadiness();
+    }, error => {
+      console.error("Erro ao capturar GPS do totem", error);
+      gpsReady = false;
+      status.textContent = "GPS obrigatorio. Autorize a localizacao para registrar ponto.";
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+  }
+
+  function captureFrame() {
+    if (!stream || !video.videoWidth) {
+      throw new Error("Camera ainda nao esta pronta.");
+    }
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    selfie.value = canvas.toDataURL("image/jpeg", 0.86);
+  }
+
+  async function autoRegister() {
+    const now = Date.now();
+    if (registering || now - lastRegistrationAt < 10000) {
+      return;
+    }
+    registering = true;
+
+    try {
+      captureFrame();
+      const response = await fetch("{{ url_for('totem_facial_registrar_teste') }}", {
+        method: "POST",
+        body: new FormData(form)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.erro || "Falha ao registrar ponto pelo totem.");
+      }
+
+      lastRegistrationAt = Date.now();
+      resultado.classList.add("success");
+      resultado.querySelector("strong").textContent = "Ponto registrado com sucesso";
+      dataHora.textContent = data.data_hora;
+      detalhe.textContent = `${data.funcionario} - ${data.tipo} - ${data.origem}`;
+      status.textContent = "Registro concluido. Aguardando proxima identificacao.";
+      flash.classList.add("active");
+      setTimeout(() => flash.classList.remove("active"), 600);
+      beep();
+    } catch (error) {
+      console.error("Erro no registro automatico do Totem Facial", error);
+      resultado.classList.remove("success");
+      resultado.querySelector("strong").textContent = error.message === "Local não autorizado para registro de ponto" ? "Local não autorizado para registro de ponto" : "Erro ao registrar";
+      dataHora.textContent = new Date().toLocaleString("pt-BR");
+      detalhe.textContent = error.message;
+      status.textContent = "Registro bloqueado. Verifique totem, GPS, local autorizado e permissao do funcionario.";
+    } finally {
+      registering = false;
+    }
+  }
+
+  totemSelect.addEventListener("change", updateReadiness);
+  funcionarioSelect.addEventListener("change", updateReadiness);
+  startCamera();
+  startGps();
+})();
+</script>
+{% endblock %}

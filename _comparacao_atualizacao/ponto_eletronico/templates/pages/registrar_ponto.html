@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div><h3 class="fw-bold mb-1">Registrar ponto</h3><div class="text-muted">GPS e selfie são obrigatórios. O sistema validará a cerca geográfica antes de gravar.</div></div>
+    </div>
+    {% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+    {% if not funcionario %}
+    <div class="alert alert-danger">Seu login não está vinculado a um funcionário ativo. Procure o Administrador Principal ou o RH Local.</div>
+    {% else %}
+    <form method="post" id="pontoForm" class="row g-3">{{ csrf_input()|safe }}
+      <div class="col-lg-5">
+        <div class="card"><div class="card-body">
+          <input type="hidden" name="funcionario_id" value="{{ funcionario.id }}">
+          <label class="form-label">Funcionário identificado pelo login</label>
+          <div class="p-3 bg-body-tertiary rounded mb-3">
+            <strong>{{ funcionario.nome }}</strong>
+            <div class="small text-muted">Matrícula {{ funcionario.matricula }} · Jornada {{ funcionario.jornada_nome }}</div>
+            <div class="small text-muted">
+              {{ funcionario.entrada }}
+              {% if funcionario.saida_almoco %} / {{ funcionario.saida_almoco }} - {{ funcionario.retorno_almoco }}{% endif %}
+              / {{ funcionario.saida_final }}
+            </div>
+          </div>
+          <div class="p-3 bg-body-tertiary rounded mb-3">
+            <div class="small text-muted">Próxima marcação</div>
+            <strong>{{ labels[proximo_tipo] }}</strong>
+          </div>
+          <input type="hidden" name="tipo" value="{{ proximo_tipo }}">
+          <div class="small text-muted mb-3">A próxima batida é calculada automaticamente pelas marcações do dia e pela jornada cadastrada.</div>
+          <label class="form-label">Justificativa para batida fora do horário</label>
+          <textarea class="form-control mb-3" name="justificativa_fora_horario" rows="3" placeholder="Obrigatória quando a batida estiver fora do horário previsto ou da tolerância."></textarea>
+          <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> Após salvar, será emitido comprovante digital com NSR, data/hora, GPS, dispositivo, IP e hash.</div>
+        </div></div>
+      </div>
+      <div class="col-lg-7">
+        <div class="card"><div class="card-body">
+          <video id="video" class="camera-preview mb-3" autoplay playsinline muted></video>
+          <canvas id="canvas" class="d-none"></canvas>
+          <input type="hidden" name="latitude" id="latitude">
+          <input type="hidden" name="longitude" id="longitude">
+          <input type="hidden" name="precisao" id="precisao">
+          <input type="hidden" name="selfie" id="selfie">
+          <input type="hidden" name="dispositivo_id" id="dispositivo_id">
+          <div class="row g-2 mb-3">
+            <div class="col-md-4"><div class="p-2 bg-body-tertiary rounded small">GPS<br><strong id="gpsStatus">capturando...</strong></div></div>
+            <div class="col-md-4"><div class="p-2 bg-body-tertiary rounded small">Câmera<br><strong id="camStatus">iniciando...</strong></div></div>
+            <div class="col-md-4"><div class="p-2 bg-body-tertiary rounded small">Dispositivo<br><strong id="deviceStatus">registrado</strong></div></div>
+          </div>
+          <button class="btn btn-success btn-lg" type="submit"><i class="bi bi-fingerprint"></i> Registrar ponto agora</button>
+        </div></div>
+      </div>
+    </form>
+    {% endif %}
+{% endblock %}

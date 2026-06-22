@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container py-5">
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <h1 class="fw-bold mb-3">Erro interno</h1>
+      <p class="text-muted mb-4">Não foi possível concluir a operação agora. Tente novamente em instantes.</p>
+      <a class="btn btn-primary" href="{{ url_for('root') }}">Voltar ao início</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

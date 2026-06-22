@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Funcionarios</h3><div class="text-muted">Cadastro completo com empresa, local, jornada e vinculo operacional.</div></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body">
+        <h5>Novo funcionario</h5><form method="post" enctype="multipart/form-data" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <input class="form-control" name="nome" placeholder="Nome completo" required>
+          <input class="form-control" name="cpf" placeholder="CPF" required>
+          <input class="form-control" name="matricula" placeholder="Matricula" required>
+          <input class="form-control" name="cargo" placeholder="Cargo">
+          <input class="form-control" type="email" name="email" placeholder="E-mail">
+          <input class="form-control" name="telefone" placeholder="Telefone">
+          <input class="form-control" type="date" name="data_admissao">
+          <select class="form-select" name="empresa_id">{% for e in empresas_rows %}<option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select>
+          <select class="form-select" name="local_id">{% for l in locais_rows %}<option value="{{ l.id }}">{{ l.nome }}</option>{% endfor %}</select>
+          <label class="form-label mb-0">Locais autorizados adicionais</label>
+          <select class="form-select" name="locais_autorizados" multiple size="3">{% for l in locais_rows %}<option value="{{ l.id }}">{{ l.nome }}</option>{% endfor %}</select>
+          <select class="form-select" name="jornada_id">{% for j in jornadas_rows %}<option value="{{ j.id }}">{{ j.nome }} - {{ fmt(j.carga_minutos) }}</option>{% endfor %}</select>
+          <select class="form-select" name="tipo_jornada" id="tipoJornada">
+            <option value="8 horas com intervalo">8 horas com intervalo</option>
+            <option value="6 horas corridas">6 horas corridas</option>
+            <option value="4 horas corridas">4 horas corridas</option>
+            <option value="Escala personalizada">Escala personalizada</option>
+          </select>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Entrada</label><input class="form-control" type="time" name="horario_entrada" id="horarioEntrada" value="07:00" required></div>
+            <div class="col-6"><label class="form-label">Saida almoco</label><input class="form-control" type="time" name="horario_saida_almoco" id="horarioSaidaAlmoco" value="11:00"></div>
+            <div class="col-6"><label class="form-label">Retorno almoco</label><input class="form-control" type="time" name="horario_retorno_almoco" id="horarioRetornoAlmoco" value="13:00"></div>
+            <div class="col-6"><label class="form-label">Saida final</label><input class="form-control" type="time" name="horario_saida_final" id="horarioSaidaFinal" value="17:00" required></div>
+          </div>
+          <select class="form-select" name="rh_local_id">{% for rh in rh_rows %}<option value="{{ rh.id }}">{{ rh.nome }} - {{ rh.unidade or 'Unidade' }}</option>{% endfor %}</select>
+          <select class="form-select" name="chefia_id">{% for c in chefias_rows %}<option value="{{ c.id }}">{{ c.nome }} - {{ c.cargo or 'Chefia' }}</option>{% endfor %}</select>
+          <select class="form-select" name="secretario_id">{% for s in secretarios_rows %}<option value="{{ s.id }}">{{ s.pasta }} - {{ s.nome }}</option>{% endfor %}</select>
+          <label class="form-label mb-0">Foto base para reconhecimento facial</label>
+          <input class="form-control" type="file" name="foto_base" accept="image/*">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="reconhecimento_facial_ativo" value="1" id="reconhecimentoFacialAtivo">
+            <label class="form-check-label" for="reconhecimentoFacialAtivo">Reconhecimento facial ativo</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="permite_totem_facial" value="1" id="permiteTotemFacial">
+            <label class="form-check-label" for="permiteTotemFacial">Permitir uso do Totem Facial</label>
+          </div>
+          <hr>
+          <input class="form-control" name="login" placeholder="Login" required>
+          <input class="form-control" type="password" name="senha" placeholder="Senha" required>
+          <input class="form-control" type="password" name="confirmar_senha" placeholder="Confirmar senha" required>
+          <select class="form-select" name="perfil_acesso" required>
+            <option value="FuncionÃ¡rio">Funcionario</option>
+            <option value="RH Local">RH Local</option>
+            <option value="Chefia Imediata">Chefia Imediata</option>
+            <option value="SecretÃ¡rio da Pasta">Secretario</option>
+            <option value="Administrador Principal">Administrador Principal</option>
+          </select>
+          <button class="btn btn-primary">Salvar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Funcionario</th><th>Matricula</th><th>Empresa</th><th>Local</th><th>Jornada/Horario</th><th>Foto facial</th><th>Facial</th><th>Totem</th><th>RH Local</th><th>Chefia</th><th>Secretario/Pasta</th></tr></thead>
+        <tbody>{% for f in rows %}<tr><td><strong>{{ f.nome }}</strong><div class="small text-muted">{{ f.cargo or '' }}</div></td><td>{{ f.matricula }}</td><td>{{ f.empresa }}</td><td>{{ f.local }}</td><td>{{ f.jornada }}<div class="small text-muted">{{ f.entrada }}{% if f.saida_almoco %} / {{ f.saida_almoco }} - {{ f.retorno_almoco }}{% endif %} / {{ f.saida_final }}</div></td><td><div class="small mb-1">Foto facial cadastrada: <strong>{% if f.foto_base_path %}SIM{% else %}NAO{% endif %}</strong></div><button class="btn btn-sm btn-outline-primary capturar-foto-facial" type="button" data-funcionario-id="{{ f.id }}" data-funcionario-nome="{{ f.nome }}">{% if f.foto_base_path %}Atualizar Foto Facial{% else %}Capturar Foto Facial{% endif %}</button></td><td>{% if f.reconhecimento_facial_ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td><td>{% if f.permite_totem_facial %}<span class="badge bg-success">Permitido</span>{% else %}<span class="badge bg-secondary">Bloqueado</span>{% endif %}</td><td>{{ f.rh_local or '-' }}</td><td>{{ f.chefia or '-' }}</td><td>{{ (f.secretario_pasta or '-') ~ ' / ' ~ (f.secretario or '-') }}</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+
+<div class="modal fade" id="fotoFacialModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="fotoFacialTitulo">Capturar foto facial</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <video id="fotoFacialVideo" class="camera-preview facial-base-preview mb-3" autoplay playsinline muted></video>
+        <canvas id="fotoFacialCanvas" class="d-none"></canvas>
+        <div id="fotoFacialStatus" class="alert alert-info mb-0">Aguardando camera.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="salvarFotoFacial">Salvar foto facial</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const modalEl = document.getElementById("fotoFacialModal");
+  if (!modalEl) return;
+  const modal = new bootstrap.Modal(modalEl);
+  const video = document.getElementById("fotoFacialVideo");
+  const canvas = document.getElementById("fotoFacialCanvas");
+  const status = document.getElementById("fotoFacialStatus");
+  const title = document.getElementById("fotoFacialTitulo");
+  const saveButton = document.getElementById("salvarFotoFacial");
+  let stream = null;
+  let funcionarioId = null;
+
+  async function startCamera() {
+    status.className = "alert alert-info mb-0";
+    status.textContent = "Abrindo camera frontal...";
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    video.srcObject = stream;
+    status.textContent = "Camera pronta. Enquadre o rosto e salve.";
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+    video.srcObject = null;
+  }
+
+  document.querySelectorAll(".capturar-foto-facial").forEach(button => {
+    button.addEventListener("click", async () => {
+      funcionarioId = button.dataset.funcionarioId;
+      title.textContent = button.textContent.trim() + " - " + button.dataset.funcionarioNome;
+      modal.show();
+      try {
+        await startCamera();
+      } catch (error) {
+        console.error("Erro ao abrir camera para foto facial", error);
+        status.className = "alert alert-danger mb-0";
+        status.textContent = "Nao foi possivel abrir a camera.";
+      }
+    });
+  });
+
+  saveButton.addEventListener("click", async () => {
+    if (!stream || !video.videoWidth || !funcionarioId) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    const formData = new FormData();
+    formData.append("_csrf_token", document.querySelector("input[name='_csrf_token']").value);
+    formData.append("foto_base", canvas.toDataURL("image/jpeg", 0.9));
+    status.className = "alert alert-info mb-0";
+    status.textContent = "Salvando foto facial...";
+    try {
+      const response = await fetch(`/funcionarios/${funcionarioId}/foto-facial`, { method: "POST", body: formData });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.erro || "Falha ao salvar foto facial.");
+      status.className = "alert alert-success mb-0";
+      status.textContent = data.mensagem;
+      setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      console.error("Erro ao salvar foto facial", error);
+      status.className = "alert alert-danger mb-0";
+      status.textContent = error.message;
+    }
+  });
+
+  modalEl.addEventListener("hidden.bs.modal", stopCamera);
+})();
+</script>
+{% endblock %}

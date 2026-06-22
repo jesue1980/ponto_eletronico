@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Totens</h3><div class="text-muted">Tablets e celulares autorizados para registro pelo Totem Facial.</div></div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <h5>Novo totem</h5>
+    <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+      <input class="form-control" name="nome" placeholder="Nome do totem" required>
+      <select class="form-select" name="local_id" required>
+        <option value="">Local de instalacao</option>
+        {% for l in locais_rows %}
+        <option value="{{ l.id }}">{{ l.nome }}</option>
+        {% endfor %}
+      </select>
+      <input class="form-control" name="latitude" placeholder="Latitude" required>
+      <input class="form-control" name="longitude" placeholder="Longitude" required>
+      <input class="form-control" type="number" min="1" name="raio_metros" placeholder="Raio permitido em metros" value="100" required>
+      <select class="form-select" name="ativo">
+        <option value="1">Ativo</option>
+        <option value="0">Inativo</option>
+      </select>
+      <button class="btn btn-primary">Salvar</button>
+    </form>
+  </div></div></div>
+  <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+    <thead><tr><th>Totem</th><th>Local</th><th>Latitude</th><th>Longitude</th><th>Raio</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in rows %}
+      <tr>
+        <td><strong>{{ t.nome }}</strong></td>
+        <td>{{ t.local_nome or '-' }}</td>
+        <td>{{ t.latitude }}</td>
+        <td>{{ t.longitude }}</td>
+        <td>{{ t.raio_metros }} m</td>
+        <td>{% if t.ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div></div></div>
+</div>
+{% endblock %}

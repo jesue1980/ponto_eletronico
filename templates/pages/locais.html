@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex justify-content-between mb-4"><h3 class="fw-bold">Locais de trabalho</h3></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body">
+        <h5>Novo local</h5>
+        <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <select class="form-select" name="empresa_id">{% for e in empresas_rows %}<option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select>
+          {% if local_user.perfil == 'Administrador Principal' %}
+          <select class="form-select" name="rh_local_id"><option value="">Sem RH local vinculado</option>{% for rh in rh_rows %}<option value="{{ rh.id }}">{{ rh.nome }} - {{ rh.unidade or 'Unidade' }}</option>{% endfor %}</select>
+          {% endif %}
+          <input class="form-control" name="nome" placeholder="Nome" required>
+          <div class="d-grid"><button class="btn btn-outline-primary" type="button" id="capturarLocal"><i class="bi bi-crosshair"></i> Capturar localização atual</button></div>
+          <input class="form-control" id="localLatitude" name="latitude" placeholder="Latitude" required>
+          <input class="form-control" id="localLongitude" name="longitude" placeholder="Longitude" required>
+          <div class="small text-muted" id="localStatus">Use o botão para preencher pelo GPS do navegador.</div>
+          <input class="form-control" type="number" name="raio_metros" value="100" placeholder="Raio em metros" required>
+          <button class="btn btn-primary">Salvar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Local</th><th>Empresa</th><th>RH Local</th><th>Latitude</th><th>Longitude</th><th>Raio</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td>{{ r.nome }}</td><td>{{ r.empresa }}</td><td>{{ r.rh_local or '-' }}</td><td>{{ r.latitude }}</td><td>{{ r.longitude }}</td><td>{{ r.raio_metros }} m</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+{% endblock %}

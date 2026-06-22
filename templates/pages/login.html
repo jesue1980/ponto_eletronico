@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="login-page">
+  <img class="login-bg-image" src="{{ url_for('static', filename='img/login-data-streams.png') }}?v={{ asset_version }}" alt="" aria-hidden="true">
+  <div class="login-data-layers" aria-hidden="true">
+    <span class="login-stream login-stream-a"></span>
+    <span class="login-stream login-stream-b"></span>
+    <span class="login-stream login-stream-c"></span>
+    <span class="login-stream login-stream-d"></span>
+    <span class="login-stream login-stream-e"></span>
+    <span class="login-stream login-stream-f"></span>
+  </div>
+  <section class="login-card">
+    <div class="login-visual">
+      <div class="login-visual-grid" aria-hidden="true"></div>
+      <div class="login-visual-fibers" aria-hidden="true"></div>
+      <div class="login-visual-core" aria-hidden="true"></div>
+      <div class="login-visual-orbit" aria-hidden="true"></div>
+      <div class="login-logo"><i class="bi bi-shield-lock"></i></div>
+      <div class="login-copy">
+        <div class="hero-kicker">Sistema corporativo REP-P</div>
+        <h1>Ponto Eletronico</h1>
+        <p>Centro de comando da jornada em tempo real, com biometria facial, GPS, auditoria imutavel e atmosfera visual de operacao critica de nova geracao.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge bg-primary">IA</span>
+        <span class="badge bg-success">Cloud</span>
+        <span class="badge bg-info text-dark">Facial</span>
+        <span class="badge bg-secondary">Fibras</span>
+      </div>
+    </div>
+    <div class="login-form-panel">
+      <div class="mb-4">
+        <h3 class="fw-bold mb-1">Acesso seguro</h3>
+        <div class="text-muted">Entre com seu usuario para acessar o painel.</div>
+      </div>
+      {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+      <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+        <div>
+          <label class="form-label">Login</label>
+          <input class="form-control form-control-lg" name="login" placeholder="Digite seu login" required autofocus>
+        </div>
+        <div>
+          <label class="form-label">Senha</label>
+          <input class="form-control form-control-lg" name="senha" type="password" placeholder="Digite sua senha" required>
+        </div>
+        <button class="btn btn-primary btn-lg"><i class="bi bi-box-arrow-in-right"></i> Entrar</button>
+      </form>
+      <a class="btn btn-outline-primary btn-lg mt-3 w-100" href="{{ url_for('totem_facial') }}"><i class="bi bi-camera-video"></i> Acessar Totem Facial</a>
+      <div class="login-demo mt-4">
+        Admin: admin / Admin@2026<br>Gestor: gestor / Gestor@2026<br>RH: rh / RH@2026<br>Funcionario: funcionario / Funcionario@2026
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card"><div class="card-body">
+      <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+        <div><h3 class="fw-bold">Comprovante digital de marcação</h3><div class="text-muted">Portaria MTE nº 671/2021 - REP-P</div></div>
+        <button class="btn btn-outline-primary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+      </div>
+      <hr>
+      <div class="row g-3">
+        <div class="col-md-4"><strong>NSR</strong><br>{{ m.nsr }}</div>
+        <div class="col-md-4"><strong>Funcionário</strong><br>{{ m.nome }} - {{ m.matricula }}</div>
+        <div class="col-md-4"><strong>Tipo</strong><br>{{ labels[m.tipo] }}</div>
+        <div class="col-md-4"><strong>Data/hora</strong><br>{{ m.data_hora }}</div>
+        <div class="col-md-4"><strong>GPS</strong><br>{{ m.latitude }}, {{ m.longitude }}</div>
+        <div class="col-md-4"><strong>Distância da cerca</strong><br>{{ '%.0f'|format(m.distancia_metros) }} m</div>
+        <div class="col-md-4"><strong>Dispositivo</strong><br>{{ m.dispositivo_id }}</div>
+        <div class="col-md-4"><strong>Origem</strong><br>{{ m.origem_normalizada or m.origem or '-' }}</div>
+        <div class="col-md-4"><strong>Totem</strong><br>{{ m.totem_id or '-' }}</div>
+        <div class="col-md-4"><strong>IP</strong><br>{{ m.ip }}</div>
+        <div class="col-md-4"><strong>Status</strong><br>
+          {% if m.status_aprovacao == 'pendente' %}<span class="badge bg-warning text-dark">Pendente de aprovação da chefia</span>
+          {% elif m.status_aprovacao == 'aprovado' %}<span class="badge bg-success">Aprovado pela chefia</span>
+          {% elif m.status_aprovacao == 'reprovado' %}<span class="badge bg-danger">Não aprovado pela chefia</span>
+          {% else %}<span class="badge bg-primary">Batida normal</span>{% endif %}
+        </div>
+        <div class="col-md-4"><strong>Horário previsto</strong><br>{{ m.horario_previsto or '-' }}</div>
+        <div class="col-md-12"><strong>Justificativa</strong><br>{{ m.justificativa_fora_horario or '-' }}</div>
+        <div class="col-md-12"><strong>Hash do registro</strong><br><code>{{ m.hash_registro }}</code></div>
+      </div>
+    </div></div>
+{% endblock %}

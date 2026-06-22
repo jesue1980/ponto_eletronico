@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Jornadas</h3><div class="text-muted">4h, 6h, 8h, 12x36 e jornadas personalizadas.</div></div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <h5>Nova jornada</h5>
+    <form method="post" class="row g-3">{{ csrf_input()|safe }}
+      <div class="col-12"><input class="form-control" name="nome" placeholder="Nome" required></div>
+      <div class="col-6"><input class="form-control" type="number" name="carga_horas" placeholder="Horas" required></div>
+      <div class="col-6"><input class="form-control" type="number" name="carga_minutos" value="0"></div>
+      <div class="col-6"><label class="form-label">Entrada</label><input class="form-control" type="time" name="entrada" required></div>
+      <div class="col-6"><label class="form-label">Saida final</label><input class="form-control" type="time" name="saida_final" required></div>
+      <div class="col-6"><label class="form-label">Saida almoco</label><input class="form-control" type="time" name="saida_almoco"></div>
+      <div class="col-6"><label class="form-label">Retorno almoco</label><input class="form-control" type="time" name="retorno_almoco"></div>
+      <div class="col-6"><label class="form-label">Pode bater antes</label><input class="form-control" type="number" min="0" name="tolerancia_antes_minutos" value="10"></div>
+      <div class="col-6"><label class="form-label">Atraso permitido</label><input class="form-control" type="number" min="0" name="tolerancia_atraso_minutos" value="10"></div>
+      <div class="col-6"><label class="form-label">Escala</label><select class="form-select" name="tipo_escala"><option value="dias_uteis">Dias uteis</option><option value="diaria">Diaria</option><option value="12x36">12x36</option></select></div>
+      <div class="col-12"><label class="form-label">Inicio 12x36</label><input class="form-control" type="date" name="data_inicio_escala"></div>
+      <div class="col-12"><button class="btn btn-primary w-100">Salvar</button></div>
+    </form>
+  </div></div></div>
+  <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+    <thead><tr><th>Nome</th><th>Carga</th><th>Escala</th><th>Horarios</th><th>Antes</th><th>Atraso</th></tr></thead>
+    <tbody>{% for j in rows %}<tr><td>{{ j.nome }} {% if j.padrao %}<span class="badge bg-info">Padrao</span>{% endif %}</td><td>{{ fmt(j.carga_minutos) }}</td><td>{{ j.tipo_escala }}</td><td>{{ j.entrada }}{% if j.saida_almoco %} / {{ j.saida_almoco }}-{{ j.retorno_almoco }}{% endif %} / {{ j.saida_final }}</td><td>{{ j.tolerancia_antes_minutos }} min</td><td>{{ j.tolerancia_atraso_minutos }} min</td></tr>{% endfor %}</tbody>
+  </table></div></div></div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4">
+  <h3 class="fw-bold">Central de Notificações</h3>
+  <div class="text-muted">Acompanhamento da fila de mensagens WhatsApp.</div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card metric"><div class="card-body"><div class="text-muted small">Pendentes</div><h3>{{ counts.pendente }}</h3></div></div></div>
+  <div class="col-md-4"><div class="card metric"><div class="card-body"><div class="text-muted small">Enviadas</div><h3>{{ counts.enviada }}</h3></div></div></div>
+  <div class="col-md-4"><div class="card metric"><div class="card-body"><div class="text-muted small">Com erro</div><h3>{{ counts.erro }}</h3></div></div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" class="row g-2 mb-3">
+      {{ csrf_input()|safe }}
+      <input type="hidden" name="acao" value="comunicado_geral">
+      <div class="col-md-10"><input class="form-control" name="mensagem" placeholder="Comunicado geral para funcionários com WhatsApp habilitado"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">Enviar comunicado</button></div>
+    </form>
+    <form method="post" class="mb-3">
+      {{ csrf_input()|safe }}
+      <input type="hidden" name="acao" value="aviso_mensal">
+      <button class="btn btn-outline-primary">Avisar espelho ponto/banco de horas mensal disponível</button>
+    </form>
+    <form method="get" class="row g-2">
+      <div class="col-md-2">
+        <select class="form-select" name="status">
+          <option value="">Status</option>
+          {% for s in ['pendente','enviada','erro'] %}
+            <option value="{{ s }}" {% if filtros.get('status') == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2"><input class="form-control" name="tipo" value="{{ filtros.get('tipo','') }}" placeholder="Tipo"></div>
+      <div class="col-md-2">
+        <select class="form-select" name="funcionario_id">
+          <option value="">Funcionário</option>
+          {% for f in funcionarios_rows %}<option value="{{ f.id }}" {% if filtros.get('funcionario_id') == f.id|string %}selected{% endif %}>{{ f.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select class="form-select" name="chefia_id">
+          <option value="">Chefia</option>
+          {% for c in chefias_rows %}<option value="{{ c.id }}" {% if filtros.get('chefia_id') == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2"><input class="form-control" type="date" name="data_inicio" value="{{ filtros.get('data_inicio','') }}"></div>
+      <div class="col-md-2"><input class="form-control" type="date" name="data_fim" value="{{ filtros.get('data_fim','') }}"></div>
+      <div class="col-12"><button class="btn btn-primary">Filtrar</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Data</th><th>Tipo</th><th>Funcionário</th><th>Chefia</th><th>Destino real</th><th>Destino usado</th><th>Status</th><th>Tent.</th><th>Retorno</th><th>Ação</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.criado_em }}</td>
+          <td>{{ row.tipo }}</td>
+          <td>{{ row.funcionario or '-' }}</td>
+          <td>{{ row.chefia or '-' }}</td>
+          <td>{{ row.destinatario_real or '-' }}</td>
+          <td>{{ row.destinatario_usado or '-' }}</td>
+          <td><span class="badge bg-{% if row.status == 'enviada' %}success{% elif row.status == 'erro' %}danger{% else %}warning{% endif %}">{{ row.status }}</span></td>
+          <td>{{ row.tentativas }}</td>
+          <td class="small">{{ row.retorno_api or '-' }}</td>
+          <td>
+            {% if row.status != 'enviada' %}
+            <form method="post">
+              {{ csrf_input()|safe }}
+              <input type="hidden" name="fila_id" value="{{ row.id }}">
+              <button class="btn btn-sm btn-outline-primary">Reenviar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

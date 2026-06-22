@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071923">
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <title>{{ title or 'Ponto Eletronico REP-P' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}" rel="stylesheet">
+</head>
+<body class="app-shell">
+<div class="app-background" aria-hidden="true">
+  <img class="app-background-image" src="{{ url_for('static', filename='img/login-data-streams.png') }}?v={{ asset_version }}" alt="">
+  <img class="app-background-veil" src="{{ url_for('static', filename='img/tech-veil.png') }}?v={{ asset_version }}" alt="">
+  <div class="app-background-streams">
+    <span class="app-background-stream app-background-stream-a"></span>
+    <span class="app-background-stream app-background-stream-b"></span>
+    <span class="app-background-stream app-background-stream-c"></span>
+    <span class="app-background-stream app-background-stream-d"></span>
+  </div>
+</div>
+{% if session.get('user_id') %}
+<nav class="mobile-nav navbar navbar-dark px-3">
+  <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}"><i class="bi bi-shield-check"></i> Ponto REP-P</a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu"><span class="navbar-toggler-icon"></span></button>
+  <div class="collapse navbar-collapse" id="mobileMenu">
+    <div class="d-grid gap-2 py-3">
+      {{ nav_links('btn btn-outline-light')|safe }}
+      <a class="btn btn-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left"></i> Sair</a>
+    </div>
+  </div>
+</nav>
+<div class="layout d-flex">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><i class="bi bi-shield-check"></i></div>
+      <div><strong>Ponto Eletronico</strong><small>REP-P Portaria MTE 671/2021</small></div>
+    </div>
+    <div class="sidebar-scroll">
+      {{ nav_links('')|safe }}
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip"><i class="bi bi-person-badge"></i><span>{{ user.nome }}<small>{{ user.perfil }}</small></span></div>
+      <a class="theme-link" href="{{ url_for('toggle_theme') }}"><i class="bi bi-circle-half"></i> Alternar tema</a>
+      <a class="logout-link" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left"></i> Sair</a>
+    </div>
+  </aside>
+  <main class="content">
+    <div class="content-glow"></div>
+{% endif %}
+    {% block body %}{{ body|safe }}{% endblock %}
+{% if session.get('user_id') %}
+  </main>
+</div>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+window.PONTO_SW_URL = "{{ url_for('sw') }}";
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

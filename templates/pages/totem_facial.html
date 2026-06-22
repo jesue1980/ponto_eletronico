@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1120">
+  <title>Terminal de Ponto</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}" rel="stylesheet">
+</head>
+<body class="terminal-body">
+<main class="totem-screen">
+  <section class="totem-camera">
+    <video id="totemVideo" autoplay playsinline muted></video>
+    <div class="totem-portal" aria-hidden="true"></div>
+    <div class="totem-scanlines" aria-hidden="true"></div>
+    <div class="totem-grid" aria-hidden="true"></div>
+    <div class="totem-corners" aria-hidden="true"></div>
+    <div class="totem-focus-ring" id="totemFocusRing" aria-hidden="true"></div>
+    <div class="totem-hud">
+      <div class="totem-hud-top">
+        <span class="totem-chip">Terminal de ponto</span>
+        <span class="totem-chip subtle" id="totemOverlayState">Pronto</span>
+      </div>
+      <div class="totem-hud-bottom">
+        <strong id="totemOverlayTitle">Centralize o rosto</strong>
+        <span id="totemOverlayText">O ponto sera registrado automaticamente.</span>
+      </div>
+    </div>
+    <canvas id="totemCanvas" class="d-none"></canvas>
+    <div id="totemFlash" class="totem-flash"></div>
+    <div class="totem-message-stack">
+      <div id="totemBanner" class="totem-banner" role="alert" aria-live="assertive">
+        <strong id="totemBannerTitle">Pronto para registrar</strong>
+        <span id="totemBannerText">Posicione o rosto dentro do circulo.</span>
+      </div>
+
+      <div id="totemResultado" class="totem-result" aria-live="polite">
+        <strong>Aguardando identificacao</strong>
+        <span id="totemDataHora">--/--/---- --:--:--</span>
+        <small id="totemDetalhe">Olhe para a camera e movimente levemente o rosto.</small>
+      </div>
+    </div>
+  </section>
+
+  <aside class="totem-panel d-none" aria-hidden="true">
+    <div>
+      <div class="totem-kicker">Modo Totem Facial</div>
+      <h1>Terminal de Ponto</h1>
+      <p class="totem-status" id="totemStatus">Iniciando modelos, camera e GPS...</p>
+      <p class="totem-instructions">Centralize o rosto no circulo, mantenha o olhar para a camera e aguarde o registro automatico.</p>
+    </div>
+
+    <form id="totemForm" class="totem-form">
+      {{ csrf_input()|safe }}
+      <input type="hidden" name="funcionario_id" id="totemFuncionarioId">
+      <input type="hidden" name="selfie" id="totemSelfie">
+      <input type="hidden" name="dispositivo_id" id="totemDeviceId">
+      <input type="hidden" name="latitude" id="totemLatitude">
+      <input type="hidden" name="longitude" id="totemLongitude">
+      <input type="hidden" name="precisao" id="totemPrecisao">
+      <input type="hidden" name="geo_primeira_leitura_em" id="totemGeoPrimeiraLeitura">
+      <input type="hidden" name="geo_ultima_leitura_em" id="totemGeoUltimaLeitura">
+      <input type="hidden" name="geo_tempo_validacao_seg" id="totemGeoTempoValidacao">
+      <input type="hidden" name="geo_qtd_leituras" id="totemGeoQtdLeituras">
+      <input type="hidden" name="geo_falha_permissao" id="totemGeoFalhaPermissao" value="0">
+      <input type="hidden" name="geo_mock_suspeito" id="totemGeoMockSuspeito" value="0">
+      <input type="hidden" name="geo_leituras_json" id="totemGeoLeiturasJson">
+      <input type="hidden" name="liveness_score" id="totemLivenessScore">
+      <input type="hidden" name="similaridade_facial" id="totemSimilaridadeFacial">
+      <input type="hidden" name="distancia_facial" id="totemDistanciaFacial">
+      <input type="hidden" name="reconhecimento_engine" value="face-api.js">
+
+      <label for="totemId">Totem autorizado</label>
+      <select id="totemId" name="totem_id" required>
+        <option value="">Selecione o totem</option>
+        {% for t in totens_rows %}
+        <option value="{{ t.id }}" data-latitude="{{ t.latitude }}" data-longitude="{{ t.longitude }}" data-raio="{{ t.raio_metros }}">{{ t.nome }} - {{ t.local_nome or 'Sem local' }}</option>
+        {% endfor %}
+      </select>
+
+      <div class="totem-identified">
+        <span>Funcionario identificado</span>
+        <strong id="funcionarioIdentificado">Aguardando identificacao</strong>
+      </div>
+    </form>
+
+    <div class="totem-checklist d-none">
+      <div><span>Camera ativa</span><strong id="checkCamera">NAO</strong></div>
+      <div><span>GPS capturado</span><strong id="checkGps">NAO</strong></div>
+      <div><span>Modelos face-api</span><strong id="checkModels">NAO</strong></div>
+      <div><span>Fotos base carregadas</span><strong id="checkBaseTotal">0</strong></div>
+      <div><span>Fotos base validas</span><strong id="checkBaseValid">0</strong></div>
+      <div><span>Totem autorizado</span><strong id="checkTotem">NAO</strong></div>
+      <div class="totem-check-reason"><span>Motivo do bloqueio</span><strong id="checkReason">Inicializando</strong></div>
+    </div>
+
+    <div class="totem-log d-none" id="totemLog" aria-live="polite"></div>
+    <a class="totem-admin-link" href="{{ url_for('logout') }}">Acesso administrativo</a>
+  </aside>
+</main>
+
+<script src="{{ url_for('static', filename='js/face-api.min.js') }}?v={{ asset_version }}"></script>
+<script>
+(() => {
+  const AUTO_DISTANCE_MAX = 0.55;
+  const RETRY_DISTANCE_MAX = 0.68;
+  const AMBIGUOUS_DISTANCE_GAP = 0.06;
+  const GEO_MIN_DURATION_MS = 10000;
+  const GEO_TARGET_READINGS = 5;
+  const GEO_MAX_ACCURACY = 50;
+  const GEO_BLOCK_TEXT = "Ponto bloqueado: a localização precisa permanecer ativa e válida durante todo o processo de verificação.";
+  const MODEL_URL = "{{ url_for('static', filename='models/face-api') }}";
+  const FACE_LIST_URL = "{{ url_for('totem_facial_funcionarios_face') }}";
+  const REGISTER_URL = "{{ url_for('totem_facial_registrar_teste') }}";
+
+  const video = document.getElementById("totemVideo");
+  const canvas = document.getElementById("totemCanvas");
+  const form = document.getElementById("totemForm");
+  const funcionarioIdInput = document.getElementById("totemFuncionarioId");
+  const selfie = document.getElementById("totemSelfie");
+  const livenessInput = document.getElementById("totemLivenessScore");
+  const similaridadeInput = document.getElementById("totemSimilaridadeFacial");
+  const distanciaInput = document.getElementById("totemDistanciaFacial");
+  const deviceInput = document.getElementById("totemDeviceId");
+  const latitudeInput = document.getElementById("totemLatitude");
+  const longitudeInput = document.getElementById("totemLongitude");
+  const precisaoInput = document.getElementById("totemPrecisao");
+  const geoPrimeiraInput = document.getElementById("totemGeoPrimeiraLeitura");
+  const geoUltimaInput = document.getElementById("totemGeoUltimaLeitura");
+  const geoTempoInput = document.getElementById("totemGeoTempoValidacao");
+  const geoQtdInput = document.getElementById("totemGeoQtdLeituras");
+  const geoFalhaInput = document.getElementById("totemGeoFalhaPermissao");
+  const geoMockInput = document.getElementById("totemGeoMockSuspeito");
+  const geoLeiturasInput = document.getElementById("totemGeoLeiturasJson");
+  const totemSelect = document.getElementById("totemId");
+  const status = document.getElementById("totemStatus");
+  const banner = document.getElementById("totemBanner");
+  const bannerTitle = document.getElementById("totemBannerTitle");
+  const bannerText = document.getElementById("totemBannerText");
+  const overlayState = document.getElementById("totemOverlayState");
+  const overlayTitle = document.getElementById("totemOverlayTitle");
+  const overlayText = document.getElementById("totemOverlayText");
+  const resultado = document.getElementById("totemResultado");
+  const dataHora = document.getElementById("totemDataHora");
+  const detalhe = document.getElementById("totemDetalhe");
+  const flash = document.getElementById("totemFlash");
+  const focusRing = document.getElementById("totemFocusRing");
+  const funcionarioIdentificado = document.getElementById("funcionarioIdentificado");
+  const logBox = document.getElementById("totemLog");
+  const checkCamera = document.getElementById("checkCamera");
+  const checkGps = document.getElementById("checkGps");
+  const checkModels = document.getElementById("checkModels");
+  const checkBaseTotal = document.getElementById("checkBaseTotal");
+  const checkBaseValid = document.getElementById("checkBaseValid");
+  const checkTotem = document.getElementById("checkTotem");
+  const checkReason = document.getElementById("checkReason");
+
+  let stream = null;
+  let cameraReady = false;
+  let gpsReady = false;
+  let gpsFailed = false;
+  let gpsWatchId = null;
+  let gpsReadings = [];
+  let gpsStartedAt = 0;
+  let modelsReady = false;
+  let basesReady = false;
+  let baseTotal = 0;
+  let registering = false;
+  let lastRegistrationAt = 0;
+  let lastProbeAt = 0;
+  let previousFaceCenter = null;
+  let livenessScore = 0;
+  let labeledDescriptors = [];
+  let bannerHoldUntil = 0;
+
+  const deviceKey = "ponto_repp_totem_device_id";
+  let deviceId = localStorage.getItem(deviceKey);
+  if (!deviceId) {
+    deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+    localStorage.setItem(deviceKey, deviceId);
+  }
+  deviceInput.value = deviceId;
+
+  if (totemSelect.options.length > 1) {
+    const testeOption = Array.from(totemSelect.options).find(option => option.textContent.toLowerCase().includes("teste"));
+    totemSelect.value = testeOption ? testeOption.value : totemSelect.options[1].value;
+  }
+
+  function markCheck(element, ok, value = null) {
+    element.textContent = value === null ? (ok ? "SIM" : "NAO") : value;
+    element.classList.toggle("ok", Boolean(ok));
+    element.classList.toggle("fail", !ok);
+  }
+
+  function currentBlockReason() {
+    if (!cameraReady) return "Camera ainda nao autorizada pelo navegador";
+    if (gpsFailed) return GEO_BLOCK_TEXT;
+    if (!gpsReady) return "Validando localizacao continuamente por no minimo 10 segundos";
+    if (!modelsReady) return "Modelos face-api nao carregados";
+    if (baseTotal === 0) return "Nenhuma foto facial cadastrada/autorizada carregada";
+    if (!basesReady) return "Nenhuma foto facial valida carregada";
+    if (!totemSelect.value) return "Nenhum totem ativo/autorizado encontrado";
+    return "Pronto para reconhecimento";
+  }
+
+  function updateChecklist() {
+    markCheck(checkCamera, cameraReady);
+    markCheck(checkGps, gpsReady);
+    markCheck(checkModels, modelsReady);
+    markCheck(checkBaseTotal, baseTotal > 0, String(baseTotal));
+    markCheck(checkBaseValid, labeledDescriptors.length > 0, String(labeledDescriptors.length));
+    markCheck(checkTotem, Boolean(totemSelect.value));
+    const reason = currentBlockReason();
+    checkReason.textContent = reason;
+    checkReason.classList.toggle("ok", reason === "Pronto para reconhecimento");
+    checkReason.classList.toggle("fail", reason !== "Pronto para reconhecimento");
+    return reason;
+  }
+
+  function addLog(label, value = "") {
+    const text = value === "" ? label : `${label}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
+    console.log(label, value);
+    const line = document.createElement("div");
+    line.textContent = text;
+    logBox.prepend(line);
+    while (logBox.children.length > 14) {
+      logBox.removeChild(logBox.lastChild);
+    }
+  }
+
+  function setStatus(text) {
+    status.textContent = text;
+    updateChecklist();
+    addLog("STATUS", text);
+  }
+
+  function setBanner(kind, title, text, holdMs = 0, force = false) {
+    if (!banner) return;
+    const now = Date.now();
+    if (!force && now < bannerHoldUntil) return;
+    banner.dataset.kind = kind;
+    bannerTitle.textContent = title;
+    bannerText.textContent = text;
+    if (overlayState) overlayState.textContent = title;
+    if (overlayTitle) overlayTitle.textContent = title;
+    if (overlayText) overlayText.textContent = text;
+    if (holdMs > 0) {
+      bannerHoldUntil = Math.max(bannerHoldUntil, now + holdMs);
+    }
+  }
+
+  function beep() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.08;
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      setTimeout(() => {
+        oscillator.stop();
+        context.close();
+      }, 180);
+    } catch (_error) {}
+  }
+
+  function resetWaiting() {
+    resultado.classList.remove("success");
+    resultado.querySelector("strong").textContent = "Aguardando identificacao";
+    dataHora.textContent = "--/--/---- --:--:--";
+    detalhe.textContent = "Olhe para a camera e movimente levemente o rosto.";
+    funcionarioIdentificado.textContent = "Aguardando identificacao";
+    funcionarioIdInput.value = "";
+    similaridadeInput.value = "";
+    distanciaInput.value = "";
+    if (focusRing) focusRing.classList.remove("tracking", "focused");
+    bannerHoldUntil = 0;
+    setBanner("neutral", "Pronto para registrar", "Posicione o rosto dentro do circulo.", 0, true);
+  }
+
+  function updateFocusRing(detection) {
+    if (!focusRing) return;
+    if (!detection || !video.videoWidth || !video.videoHeight) {
+      focusRing.classList.remove("tracking", "focused");
+      return;
+    }
+    const box = detection.detection.box;
+    const faceCenterX = box.x + box.width / 2;
+    const faceCenterY = box.y + box.height / 2;
+    const frameCenterX = video.videoWidth / 2;
+    const frameCenterY = video.videoHeight / 2;
+    const offsetX = Math.abs(faceCenterX - frameCenterX) / video.videoWidth;
+    const offsetY = Math.abs(faceCenterY - frameCenterY) / video.videoHeight;
+    const centered = Math.sqrt(offsetX * offsetX + offsetY * offsetY) < 0.14;
+    focusRing.classList.add("tracking");
+    focusRing.classList.toggle("focused", centered);
+  }
+
+  async function loadModels() {
+    if (!window.faceapi) {
+      throw new Error("face-api.js nao foi carregado.");
+    }
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    modelsReady = true;
+    updateChecklist();
+    addLog("MODELOS CARREGADOS", MODEL_URL);
+  }
+
+  async function loadBaseFaces() {
+    const url = `${FACE_LIST_URL}?_=${Date.now()}`;
+    const response = await fetch(url, { cache: "no-store", headers: { "X-Requested-With": "fetch" } });
+    const data = await response.json();
+    baseTotal = data.total_fotos_base_carregadas || data.total || 0;
+    updateChecklist();
+    addLog("TOTAL DE FOTOS BASE CARREGADAS", baseTotal);
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+    labeledDescriptors = [];
+
+    for (const funcionario of data.funcionarios || []) {
+      try {
+        if (Array.isArray(funcionario.embeddings) && funcionario.embeddings.length) {
+          for (const embedding of funcionario.embeddings) {
+            if (Array.isArray(embedding) && embedding.length) {
+              labeledDescriptors.push({
+                funcionario,
+                descriptor: new Float32Array(embedding)
+              });
+            }
+          }
+          addLog("BIOMETRIA VIDEO OK", `${funcionario.nome}: ${funcionario.embeddings.length} vetores`);
+          continue;
+        }
+        const fotoUrl = funcionario.foto_url.includes("?") ? `${funcionario.foto_url}&_=${Date.now()}` : `${funcionario.foto_url}?_=${Date.now()}`;
+        const image = await faceapi.fetchImage(fotoUrl);
+        const detection = await faceapi
+          .detectSingleFace(image, options)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (!detection) {
+          addLog("MOTIVO DA REJEICAO", `foto base invalida ignorada: ${funcionario.nome} sem rosto detectado`);
+          continue;
+        }
+        labeledDescriptors.push({
+          funcionario,
+          descriptor: detection.descriptor
+        });
+        addLog("FOTO BASE OK", funcionario.nome);
+      } catch (error) {
+        addLog("MOTIVO DA REJEICAO", `foto base invalida ignorada: ${funcionario.nome}: ${error.message}`);
+      }
+    }
+
+    basesReady = labeledDescriptors.length > 0;
+    updateChecklist();
+    addLog("TOTAL DE FOTOS VALIDAS", labeledDescriptors.length);
+  }
+
+  async function startCamera() {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    video.srcObject = stream;
+    cameraReady = true;
+    updateChecklist();
+    addLog("CAMERA ATIVA", "frames continuos");
+  }
+
+  function startGps() {
+    if (!navigator.geolocation) {
+      failGps("GPS indisponivel neste navegador.");
+      return;
+    }
+    gpsReady = false;
+    gpsFailed = false;
+    gpsStartedAt = Date.now();
+    gpsReadings = [];
+    geoFalhaInput.value = "0";
+    geoMockInput.value = "0";
+    geoLeiturasInput.value = "";
+    if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = navigator.geolocation.watchPosition(pos => {
+      const mockSuspect = Boolean(pos.coords.mocked || pos.mocked);
+      if (mockSuspect) {
+        failGps(GEO_BLOCK_TEXT, true);
+        return;
+      }
+      if (!Number.isFinite(pos.coords.accuracy) || pos.coords.accuracy > GEO_MAX_ACCURACY) {
+        failGps("Precisao do GPS insuficiente. Ative alta precisao e tente novamente.");
+        return;
+      }
+      const reading = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        precisao: pos.coords.accuracy,
+        capturada_em: Date.now(),
+        mock_suspeito: mockSuspect
+      };
+      gpsReadings.push(reading);
+      if (gpsReadings.length > GEO_TARGET_READINGS) gpsReadings = gpsReadings.slice(-GEO_TARGET_READINGS);
+      syncGpsFields();
+      approveGpsIfReady();
+      updateChecklist();
+    }, error => {
+      failGps(error.message || GEO_BLOCK_TEXT);
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+  }
+
+  function syncGpsFields() {
+    const first = gpsReadings[0];
+    const last = gpsReadings[gpsReadings.length - 1];
+    if (!last) return;
+    latitudeInput.value = last.latitude;
+    longitudeInput.value = last.longitude;
+    precisaoInput.value = last.precisao;
+    geoPrimeiraInput.value = first ? new Date(first.capturada_em).toISOString() : "";
+    geoUltimaInput.value = new Date(last.capturada_em).toISOString();
+    geoTempoInput.value = first ? String(Math.floor((last.capturada_em - first.capturada_em) / 1000)) : "0";
+    geoQtdInput.value = String(gpsReadings.length);
+    geoLeiturasInput.value = JSON.stringify(gpsReadings);
+  }
+
+  function approveGpsIfReady() {
+    const first = gpsReadings[0];
+    const last = gpsReadings[gpsReadings.length - 1];
+    if (!first || !last || gpsFailed) return;
+    const elapsed = last.capturada_em - first.capturada_em;
+    const remaining = Math.max(0, Math.ceil((GEO_MIN_DURATION_MS - elapsed) / 1000));
+    setBanner("neutral", "Validando localizacao", `${gpsReadings.length}/${GEO_TARGET_READINGS} leituras GPS - ${remaining}s.`, 0);
+    if (gpsReadings.length >= GEO_TARGET_READINGS && elapsed >= GEO_MIN_DURATION_MS) {
+      gpsReady = true;
+      setBanner("neutral", "Localizacao validada", "Agora o reconhecimento facial pode iniciar.", 3000, true);
+      setStatus("Aguardando identificacao.");
+    }
+  }
+
+  function failGps(message, suspicious = false) {
+    gpsReady = false;
+    gpsFailed = true;
+    geoFalhaInput.value = "1";
+    if (suspicious) geoMockInput.value = "1";
+    updateChecklist();
+    addLog("MOTIVO DA REJEICAO", message || GEO_BLOCK_TEXT);
+    setBanner("danger", "Ponto bloqueado", GEO_BLOCK_TEXT, 10000, true);
+    setStatus(message || GEO_BLOCK_TEXT);
+  }
+
+  function captureFrame() {
+    if (!stream || !video.videoWidth) {
+      throw new Error("Camera ainda nao esta pronta.");
+    }
+    const maxSide = 640;
+    const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    selfie.value = canvas.toDataURL("image/jpeg", 0.74);
+  }
+
+  function updateLiveness(box) {
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    let movement = 0;
+    if (previousFaceCenter) {
+      const dx = center.x - previousFaceCenter.x;
+      const dy = center.y - previousFaceCenter.y;
+      movement = Math.sqrt(dx * dx + dy * dy);
+    }
+    previousFaceCenter = center;
+    livenessScore = Math.round(movement * 3);
+    livenessInput.value = String(livenessScore);
+    if (livenessScore >= 6) {
+      addLog("PROVA DE VIDA APROVADA", { livenessScore });
+      return true;
+    }
+    addLog("PROVA DE VIDA REPROVADA", { livenessScore });
+    return false;
+  }
+
+  function findBestMatch(descriptor) {
+    let best = null;
+    let second = null;
+    const comparisons = [];
+    for (const item of labeledDescriptors) {
+      const distance = faceapi.euclideanDistance(descriptor, item.descriptor);
+      const similarity = Math.max(0, Math.round((1 - distance) * 10000) / 100);
+      comparisons.push({
+        funcionario: item.funcionario.nome,
+        distancia: Math.round(distance * 10000) / 10000,
+        similaridade: similarity
+      });
+      if (!best || distance < best.distance) {
+        second = best;
+        best = { funcionario: item.funcionario, distance };
+      } else if (!second || distance < second.distance) {
+        second = { funcionario: item.funcionario, distance };
+      }
+    }
+    addLog("COMPARACOES FACIAIS", comparisons);
+    if (!best) {
+      return null;
+    }
+    best.similarity = Math.max(0, Math.round((1 - best.distance) * 10000) / 100);
+    best.secondDistance = second ? second.distance : null;
+    best.distanceGap = second ? second.distance - best.distance : null;
+    return best;
+  }
+
+  async function registerMatch(match) {
+    captureFrame();
+    funcionarioIdInput.value = match.funcionario.id;
+    distanciaInput.value = String(match.distance);
+    similaridadeInput.value = String(match.similarity);
+    const response = await fetch(REGISTER_URL, {
+      method: "POST",
+      body: new FormData(form)
+    });
+    const data = await response.json();
+    if (response.status === 409 && data.duplicado) {
+      lastRegistrationAt = Date.now();
+      resultado.classList.remove("success");
+      resultado.querySelector("strong").textContent = "Ponto ja registrado recentemente";
+      dataHora.textContent = data.data_hora || new Date().toLocaleString("pt-BR");
+      detalhe.textContent = `Funcionario: ${data.funcionario}`;
+      setBanner("warning", "Registro recente", "O ponto ja foi registrado recentemente.", 10000);
+      setStatus("Ponto ja registrado recentemente");
+      setTimeout(resetWaiting, 10000);
+      return;
+    }
+    if (data && data.fora_horario) {
+      resultado.classList.remove("success");
+      resultado.querySelector("strong").textContent = "Fora do horario permitido";
+      dataHora.textContent = new Date().toLocaleString("pt-BR");
+      detalhe.textContent = `${data.erro || "Batida bloqueada."} Justifique no aplicativo.`;
+      setBanner("danger", "Fora do horario permitido", "Justifique no aplicativo e aguarde a aprovacao da chefia.", 10000);
+      setStatus("Batida bloqueada por horario.");
+      setTimeout(resetWaiting, 10000);
+      return;
+    }
+    if (!response.ok || !data.ok) {
+      throw new Error(data.erro || data.mensagem || "Falha ao registrar ponto pelo totem.");
+    }
+    lastRegistrationAt = Date.now();
+    funcionarioIdentificado.textContent = data.funcionario;
+    resultado.classList.add("success");
+    if (focusRing) focusRing.classList.add("focused");
+    resultado.querySelector("strong").textContent = "Registrado com sucesso";
+    dataHora.textContent = data.data_hora;
+    detalhe.textContent = `Funcionario: ${data.funcionario} - ponto registrado com sucesso.`;
+    setBanner("success", "Registrado com sucesso", `Ponto de ${data.funcionario} gravado.`, 10000);
+    setStatus("Registro concluido com sucesso.");
+    flash.classList.add("active");
+    setTimeout(() => flash.classList.remove("active"), 600);
+    beep();
+    setTimeout(resetWaiting, 10000);
+  }
+
+  async function probeAndRegister() {
+    const now = Date.now();
+    if (registering || now - lastProbeAt < 600 || now - lastRegistrationAt < 8000) {
+      return;
+    }
+    if (!cameraReady || !gpsReady || !modelsReady || !basesReady || !totemSelect.value) {
+      const reason = updateChecklist();
+      setStatus(reason);
+      return;
+    }
+    if (currentBlockReason() === "Pronto para reconhecimento" && status.textContent.startsWith("Registro bloqueado")) {
+      setStatus("Aguardando identificacao.");
+    }
+
+    registering = true;
+    lastProbeAt = now;
+    try {
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+      const detections = await faceapi
+        .detectAllFaces(video, options)
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      addLog("QUANTIDADE DE ROSTOS ENCONTRADOS", detections.length);
+      if (!detections.length) {
+        updateFocusRing(null);
+        setBanner("neutral", "Aguardando rosto", "Centralize o rosto dentro do circulo.", 10000);
+        addLog("MOTIVO DA REJEICAO", "nenhum rosto detectado");
+        setStatus("Aguardando identificacao.");
+        return;
+      }
+      addLog("FACE DETECTADA");
+
+      const detection = detections[0];
+      updateFocusRing(detection);
+      if (!updateLiveness(detection.detection.box)) {
+        setBanner("warning", "Movimente o rosto", "O sistema precisa confirmar prova de vida.", 10000);
+        setStatus("Aguardando prova de vida. Movimente levemente o rosto.");
+        addLog("MOTIVO DA REJEICAO", "prova de vida reprovada");
+        return;
+      }
+
+      const match = findBestMatch(detection.descriptor);
+      addLog("FUNCIONARIO MAIS PARECIDO", match ? match.funcionario.nome : "nenhum");
+      addLog("DISTANCIA FACIAL", match ? match.distance.toFixed(4) : "sem comparacao");
+      addLog("MARGEM ENTRE FACES", match && match.distanceGap !== null ? match.distanceGap.toFixed(4) : "sem segunda face");
+      addLog("PERCENTUAL DE SIMILARIDADE", match ? `${match.similarity}%` : "0%");
+
+      if (!match || match.distance > RETRY_DISTANCE_MAX) {
+        resultado.classList.remove("success");
+        resultado.querySelector("strong").textContent = "Rosto encontrado";
+        dataHora.textContent = new Date().toLocaleString("pt-BR");
+        detalhe.textContent = "Rosto encontrado, porem nao corresponde a nenhum funcionario cadastrado.";
+        setBanner("danger", "Rosto nao cadastrado", "Se isso for um erro, refaca o cadastro facial no sistema.", 10000);
+        addLog("MOTIVO DA REJEICAO", `distancia acima de ${RETRY_DISTANCE_MAX}`);
+        setStatus("Rosto encontrado, porem nao corresponde a nenhum funcionario cadastrado.");
+        return;
+      }
+      const ambiguous = match.secondDistance !== null && match.distance > AUTO_DISTANCE_MAX && match.distanceGap < AMBIGUOUS_DISTANCE_GAP;
+      if (ambiguous) {
+        funcionarioIdentificado.textContent = match.funcionario.nome;
+        resultado.classList.remove("success");
+        resultado.querySelector("strong").textContent = "Tente novamente";
+        dataHora.textContent = new Date().toLocaleString("pt-BR");
+        detalhe.textContent = `Funcionario mais parecido: ${match.funcionario.nome} - distancia ${match.distance.toFixed(4)}`;
+        setBanner("warning", "Leitura ambigua", "Ajuste o rosto no centro do circulo e tente novamente.", 10000);
+        addLog("MOTIVO DA REJEICAO", "comparacao facial ambigua");
+        setStatus("Reconhecimento ambíguo. Tente novamente.");
+        return;
+      }
+
+      funcionarioIdentificado.textContent = match.funcionario.nome;
+      setBanner("success", "Funcionario identificado", `${match.funcionario.nome} reconhecido. Registrando ponto.`, 10000);
+      setStatus("Reconhecido. Registrando ponto...");
+      await registerMatch(match);
+    } catch (error) {
+      addLog("MOTIVO DA REJEICAO", error.message);
+      updateFocusRing(null);
+      if (/horario permitido|justificativa/i.test(error.message)) {
+        setBanner("danger", "Fora do horario permitido", "Justifique no aplicativo e aguarde a aprovacao da chefia.", 10000);
+      } else {
+        setBanner("warning", "Nao foi possivel registrar", error.message, 10000);
+      }
+      const reason = updateChecklist();
+      if (reason === "Pronto para reconhecimento") {
+        setStatus("Aguardando identificacao.");
+      } else {
+        setStatus(reason);
+      }
+    } finally {
+      registering = false;
+    }
+  }
+
+  async function boot() {
+    try {
+      await loadModels();
+      await loadBaseFaces();
+      await startCamera();
+      startGps();
+      setStatus("Aguardando identificacao.");
+      setInterval(() => {
+        loadBaseFaces().catch(error => addLog("SINCRONIZACAO FACES FALHOU", error.message));
+      }, 60000);
+      setInterval(probeAndRegister, 500);
+    } catch (error) {
+      addLog("MOTIVO DA REJEICAO", error.message);
+      setStatus("Falha ao iniciar Totem Facial.");
+    }
+  }
+
+  totemSelect.addEventListener("change", () => {
+    updateChecklist();
+    resetWaiting();
+    startGps();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && gpsStartedAt && !gpsReady) {
+      failGps(GEO_BLOCK_TEXT);
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    if (gpsStartedAt && !gpsReady) failGps(GEO_BLOCK_TEXT);
+  });
+  updateChecklist();
+  boot();
+})();
+</script>
+</body>
+</html>

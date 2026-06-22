@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">RH Local</h3><div class="text-muted">Responsáveis locais pelo cadastro funcional e unidades.</div></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body"><h5>Novo RH local</h5>
+        <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <select class="form-select" name="empresa_id">{% for e in empresas_rows %}<option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select>
+          <input class="form-control" name="nome" placeholder="Nome do responsável" required>
+          <input class="form-control" type="email" name="email" placeholder="E-mail">
+          <input class="form-control" name="unidade" placeholder="Unidade">
+          <button class="btn btn-primary">Salvar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Unidade</th><th>Empresa</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td>{{ r.nome }}</td><td>{{ r.email or '-' }}</td><td>{{ r.unidade or '-' }}</td><td>{{ r.empresa }}</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+{% endblock %}

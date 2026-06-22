@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Batidas fora do horário</h3><div class="text-muted">Marcações pendentes de aprovação da chefia.</div></div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+      <thead><tr><th>Funcionário</th><th>Data/hora</th><th>Tipo</th><th>Previsto</th><th>Justificativa</th><th>Selfie</th><th>GPS/IP/Dispositivo</th><th>Ação</th></tr></thead>
+      <tbody>
+      {% for m in rows %}
+        <tr>
+          <td><strong>{{ m.funcionario }}</strong><div class="small text-muted">{{ m.matricula }}</div></td>
+          <td>{{ m.data_hora }}</td>
+          <td>{{ labels[m.tipo] }}</td>
+          <td>{{ m.horario_previsto or '-' }}</td>
+          <td>{{ m.justificativa_fora_horario or '-' }}</td>
+          <td>{% if m.selfie_path %}<span class="badge bg-success">Selfie registrada</span>{% else %}<span class="badge bg-secondary">Sem selfie</span>{% endif %}</td>
+          <td><div class="small">GPS: {{ m.latitude }}, {{ m.longitude }}</div><div class="small">IP: {{ m.ip }}</div><div class="small">Dispositivo: {{ m.dispositivo_id }}</div></td>
+          <td>
+            <div class="d-flex gap-1">
+              <form method="post" action="{{ url_for('decidir_batida', marcacao_id=m.id, decisao='aprovado') }}">{{ csrf_input()|safe }}<button class="btn btn-sm btn-success" type="submit">Aprovar</button></form>
+              <form method="post" action="{{ url_for('decidir_batida', marcacao_id=m.id, decisao='reprovado') }}">{{ csrf_input()|safe }}<button class="btn btn-sm btn-outline-danger" type="submit">Reprovar</button></form>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      {% if not rows %}<tr><td colspan="8" class="text-center py-4">Nenhuma batida pendente.</td></tr>{% endif %}
+      </tbody>
+    </table></div></div>
+{% endblock %}

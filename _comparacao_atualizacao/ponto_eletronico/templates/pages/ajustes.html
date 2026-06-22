@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Solicitações de ajuste</h3><div class="text-muted">Marcações originais não são alteradas. Ajustes exigem justificativa e aprovação.</div></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body">
+        <h5>Nova solicitação</h5><form method="post" enctype="multipart/form-data" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <select class="form-select" name="funcionario_id">{% for f in funcionarios_rows %}<option value="{{ f.id }}">{{ f.nome }}</option>{% endfor %}</select>
+          <select class="form-select" name="tipo">{% for k,v in labels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+          <input class="form-control" type="datetime-local" name="data_hora_solicitada" required>
+          <select class="form-select" name="justificativa_padrao">
+            <option value="">Justificativa padrão</option>
+            {% for j in justificativas_rows %}<option value="{{ j.descricao }}">{{ j.descricao }}</option>{% endfor %}
+          </select>
+          <textarea class="form-control" name="justificativa" rows="3" placeholder="Justificativa" required></textarea>
+          <input class="form-control" type="file" name="anexo">
+          <button class="btn btn-primary">Solicitar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Funcionário</th><th>Chefia</th><th>Tipo</th><th>Data solicitada</th><th>Justificativa</th><th>Status</th><th>Ação</th></tr></thead>
+        <tbody>{% for a in rows %}<tr><td>{{ a.funcionario }}</td><td>{{ a.chefia or '-' }}</td><td>{{ labels[a.tipo] }}</td><td>{{ a.data_hora_solicitada }}</td><td>{{ a.justificativa }}</td><td><span class="badge bg-{% if a.status == 'aprovado' %}success{% elif a.status == 'rejeitado' %}danger{% else %}warning{% endif %}">{{ a.status }}</span></td><td>{% if can_approve and a.status == 'pendente' %}<div class="d-flex gap-1"><form method="post" action="{{ url_for('decidir_ajuste', ajuste_id=a.id, decisao='aprovado') }}">{{ csrf_input()|safe }}<button class="btn btn-sm btn-success" type="submit">Aprovar</button></form><form method="post" action="{{ url_for('decidir_ajuste', ajuste_id=a.id, decisao='rejeitado') }}">{{ csrf_input()|safe }}<button class="btn btn-sm btn-outline-danger" type="submit">Rejeitar</button></form></div>{% endif %}</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+{% endblock %}

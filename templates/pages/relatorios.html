@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div><h3 class="fw-bold">Relatorios</h3><div class="text-muted">Diario, semanal, mensal, PDF, Excel, AFD e AEJ.</div></div>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-danger" href="{{ export_url('pdf') }}">PDF</a>
+        <a class="btn btn-outline-success" href="{{ export_url('excel') }}">Excel</a>
+        <a class="btn btn-outline-secondary" href="{{ export_url('afd') }}">AFD</a>
+        <a class="btn btn-outline-secondary" href="{{ export_url('aej') }}">AEJ</a>
+      </div>
+    </div>
+    <form class="card mb-3"><div class="card-body"><div class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label">Funcionario</label>{% if can_choose_funcionario %}<select class="form-select" name="funcionario_id"><option value="">Todos</option>{% for f in funcionarios_rows %}<option value="{{ f.id }}" {% if funcionario_id|string == f.id|string %}selected{% endif %}>{{ f.nome }}</option>{% endfor %}</select>{% else %}<input type="hidden" name="funcionario_id" value="{{ funcionario_id }}">{% for f in funcionarios_rows %}<input class="form-control" value="{{ f.nome }}" readonly>{% else %}<input class="form-control" value="Funcionario nao vinculado" readonly>{% endfor %}{% endif %}</div>
+      <div class="col-md-3"><label class="form-label">Inicio</label><input class="form-control" type="date" name="data_inicio" value="{{ start.isoformat() }}"></div>
+      <div class="col-md-3"><label class="form-label">Fim</label><input class="form-control" type="date" name="data_fim" value="{{ end.isoformat() }}"></div>
+      <div class="col-md-2 d-grid"><button class="btn btn-primary">Filtrar</button></div>
+    </div></div></form>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Prevista</div><h5>{{ fmt(totals.prevista) }}</h5></div></div></div>
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Trabalhada</div><h5>{{ fmt(totals.trabalhada) }}</h5></div></div></div>
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Banco horas</div><h5>{{ fmt(totals.saldo) }}</h5></div></div></div>
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Extras</div><h5>{{ fmt(totals.extras) }}</h5></div></div></div>
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Atrasos</div><h5>{{ fmt(totals.atraso) }}</h5></div></div></div>
+      <div class="col-6 col-lg-2"><div class="card"><div class="card-body"><div class="small text-muted">Faltas</div><h5>{{ totals.faltas }}</h5></div></div></div>
+    </div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+      <thead><tr><th>Data</th><th>Funcionario</th><th>Jornada</th><th>Prevista</th><th>Trabalhada</th><th>Saldo</th><th>Extras</th><th>Atraso</th><th>Origem</th><th>Status</th><th>Aprovacao</th></tr></thead>
+      <tbody>{% for l in linhas %}<tr><td>{{ l.data.strftime('%d/%m/%Y') }}</td><td>{{ l.funcionario.nome }}</td><td>{{ l.jornada.nome }}</td><td>{{ l.prevista }}</td><td>{{ l.trabalhada }}</td><td class="{% if l.saldo_min < 0 %}text-danger{% elif l.saldo_min > 0 %}text-success{% endif %}">{{ l.saldo }}</td><td>{{ l.extras }}</td><td>{{ l.atraso }}</td><td>{{ l.origens_marcacoes }}</td><td>{% if l.falta %}<span class="badge bg-danger">Falta</span>{% elif l.folga %}<span class="badge bg-secondary">Folga</span>{% else %}<span class="badge bg-success">Presente</span>{% endif %}</td><td>{% if l.status_marcacoes == 'Batida fora do horario pendente' %}<span class="badge bg-warning text-dark">{{ l.status_marcacoes }}</span>{% elif l.status_marcacoes == 'Aprovado pela chefia' %}<span class="badge bg-success">{{ l.status_marcacoes }}</span>{% elif l.status_marcacoes == 'Nao aprovado pela chefia' %}<span class="badge bg-danger">{{ l.status_marcacoes }}</span>{% else %}<span class="badge bg-primary">{{ l.status_marcacoes }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div></div>
+{% endblock %}

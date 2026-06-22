@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Funcionarios</h3><div class="text-muted">Cadastro completo com empresa, local, jornada e vinculo operacional.</div></div>
+    <div class="row g-3">
+      <div class="col-lg-4"><div class="card"><div class="card-body">
+        <h5>Novo funcionario</h5><form method="post" enctype="multipart/form-data" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <input class="form-control" name="nome" placeholder="Nome completo" required>
+          <input class="form-control" name="cpf" placeholder="CPF" required>
+          <input class="form-control" name="matricula" placeholder="Matricula" required>
+          <input class="form-control" name="cargo" placeholder="Cargo">
+          <input class="form-control" type="email" name="email" placeholder="E-mail">
+          <input class="form-control" name="telefone" placeholder="Telefone">
+          <input class="form-control" type="date" name="data_admissao">
+          <select class="form-select" name="empresa_id">{% for e in empresas_rows %}<option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select>
+          <select class="form-select" name="local_id">{% for l in locais_rows %}<option value="{{ l.id }}">{{ l.nome }}</option>{% endfor %}</select>
+          <label class="form-label mb-0">Locais autorizados adicionais</label>
+          <select class="form-select" name="locais_autorizados" multiple size="3">{% for l in locais_rows %}<option value="{{ l.id }}">{{ l.nome }}</option>{% endfor %}</select>
+          <select class="form-select" name="jornada_id">{% for j in jornadas_rows %}<option value="{{ j.id }}">{{ j.nome }} - {{ fmt(j.carga_minutos) }}</option>{% endfor %}</select>
+          <select class="form-select" name="tipo_jornada" id="tipoJornada">
+            <option value="8 horas com intervalo">8 horas com intervalo</option>
+            <option value="6 horas corridas">6 horas corridas</option>
+            <option value="4 horas corridas">4 horas corridas</option>
+            <option value="Escala personalizada">Escala personalizada</option>
+          </select>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Entrada</label><input class="form-control" type="time" name="horario_entrada" id="horarioEntrada" value="07:00" required></div>
+            <div class="col-6"><label class="form-label">Saida almoco</label><input class="form-control" type="time" name="horario_saida_almoco" id="horarioSaidaAlmoco" value="11:00"></div>
+            <div class="col-6"><label class="form-label">Retorno almoco</label><input class="form-control" type="time" name="horario_retorno_almoco" id="horarioRetornoAlmoco" value="13:00"></div>
+            <div class="col-6"><label class="form-label">Saida final</label><input class="form-control" type="time" name="horario_saida_final" id="horarioSaidaFinal" value="17:00" required></div>
+          </div>
+          <select class="form-select" name="rh_local_id">{% for rh in rh_rows %}<option value="{{ rh.id }}">{{ rh.nome }} - {{ rh.unidade or 'Unidade' }}</option>{% endfor %}</select>
+          <select class="form-select" name="chefia_id">{% for c in chefias_rows %}<option value="{{ c.id }}">{{ c.nome }} - {{ c.cargo or 'Chefia' }}</option>{% endfor %}</select>
+          <select class="form-select" name="secretario_id">{% for s in secretarios_rows %}<option value="{{ s.id }}">{{ s.pasta }} - {{ s.nome }}</option>{% endfor %}</select>
+          <label class="form-label mb-0">Foto base para reconhecimento facial</label>
+          <input class="form-control" type="file" name="foto_base" accept="image/*">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="reconhecimento_facial_ativo" value="1" id="reconhecimentoFacialAtivo">
+            <label class="form-check-label" for="reconhecimentoFacialAtivo">Reconhecimento facial ativo</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="permite_totem_facial" value="1" id="permiteTotemFacial">
+            <label class="form-check-label" for="permiteTotemFacial">Permitir uso do Totem Facial</label>
+          </div>
+          <hr>
+          <input class="form-control" name="login" placeholder="Login" required>
+          <input class="form-control" type="password" name="senha" placeholder="Senha" required>
+          <input class="form-control" type="password" name="confirmar_senha" placeholder="Confirmar senha" required>
+          <select class="form-select" name="perfil_acesso" required>
+            <option value="FuncionÃ¡rio">Funcionario</option>
+            <option value="RH Local">RH Local</option>
+            <option value="Chefia Imediata">Chefia Imediata</option>
+            <option value="SecretÃ¡rio da Pasta">Secretario</option>
+            <option value="Administrador Principal">Administrador Principal</option>
+          </select>
+          <button class="btn btn-primary">Salvar</button>
+        </form>
+      </div></div></div>
+      <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>Funcionario</th><th>Matricula</th><th>Empresa</th><th>Local</th><th>Jornada/Horario</th><th>Facial</th><th>Totem</th><th>RH Local</th><th>Chefia</th><th>Secretario/Pasta</th></tr></thead>
+        <tbody>{% for f in rows %}<tr><td><strong>{{ f.nome }}</strong><div class="small text-muted">{{ f.cargo or '' }}</div></td><td>{{ f.matricula }}</td><td>{{ f.empresa }}</td><td>{{ f.local }}</td><td>{{ f.jornada }}<div class="small text-muted">{{ f.entrada }}{% if f.saida_almoco %} / {{ f.saida_almoco }} - {{ f.retorno_almoco }}{% endif %} / {{ f.saida_final }}</div></td><td>{% if f.reconhecimento_facial_ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td><td>{% if f.permite_totem_facial %}<span class="badge bg-success">Permitido</span>{% else %}<span class="badge bg-secondary">Bloqueado</span>{% endif %}</td><td>{{ f.rh_local or '-' }}</td><td>{{ f.chefia or '-' }}</td><td>{{ (f.secretario_pasta or '-') ~ ' / ' ~ (f.secretario or '-') }}</td></tr>{% endfor %}</tbody>
+      </table></div></div></div>
+    </div>
+{% endblock %}

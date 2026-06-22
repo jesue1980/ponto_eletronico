@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="mb-4"><h3 class="fw-bold">Chefias imediatas</h3><div class="text-muted">Responsaveis por aprovar ou reprovar ajustes de ponto.</div></div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card"><div class="card-body"><h5>Nova chefia</h5>
+    <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+      <select class="form-select" name="empresa_id">{% for e in empresas_rows %}<option value="{{ e.id }}">{{ e.nome_fantasia or e.razao_social }}</option>{% endfor %}</select>
+      <input class="form-control" name="nome" placeholder="Nome" required>
+      <input class="form-control" type="email" name="email" placeholder="E-mail">
+      <input class="form-control" name="cargo" placeholder="Cargo">
+      <input class="form-control" name="whatsapp" placeholder="WhatsApp com DDD">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" name="receber_solicitacoes_whatsapp" value="1" id="receberSolicitacoesWhats">
+        <label class="form-check-label" for="receberSolicitacoesWhats">Receber solicitacoes por WhatsApp</label>
+      </div>
+      <select class="form-select" name="usuario_id"><option value="">Sem usuario vinculado</option>{% for u in usuarios_rows %}<option value="{{ u.id }}">{{ u.nome }} ({{ u.login }})</option>{% endfor %}</select>
+      <button class="btn btn-primary">Salvar</button>
+    </form>
+  </div></div></div>
+  <div class="col-lg-8"><div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+    <thead><tr><th>Nome</th><th>Cargo</th><th>E-mail</th><th>WhatsApp</th><th>Recebe</th><th>Usuario</th><th>Empresa</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td>{{ r.nome }}</td><td>{{ r.cargo or '-' }}</td><td>{{ r.email or '-' }}</td><td>{{ r.whatsapp or '-' }}</td><td>{% if r.receber_solicitacoes_whatsapp %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-secondary">Nao</span>{% endif %}</td><td>{{ r.usuario or '-' }}</td><td>{{ r.empresa }}</td></tr>{% endfor %}</tbody>
+  </table></div></div></div>
+</div>
+{% endblock %}

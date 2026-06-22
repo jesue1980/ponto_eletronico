@@ -1,0 +1,7 @@
+Flask>=3.0,<4
+gunicorn>=22.0,<24
+python-dotenv>=1.0,<2
+psycopg[binary]>=3.1,<4
+Pillow>=10.0,<12
+# Para reconhecimento facial real por embeddings, instalar quando houver suporte nativo ao dlib:
+# face_recognition>=1.3,<2

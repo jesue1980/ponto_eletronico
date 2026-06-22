@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div><h3 class="fw-bold mb-1">Dashboard</h3><div class="text-muted">Indicadores de ponto, banco de horas e conformidade REP-P.</div></div>
+      <a class="btn btn-primary btn-lg" href="{{ url_for('registrar_ponto') }}"><i class="bi bi-fingerprint"></i> Registrar ponto</a>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="text-muted small">Funcionários</div><h3>{{ funcionarios_count }}</h3></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="text-muted small">Marcações hoje</div><h3>{{ marcacoes_hoje }}</h3></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="text-muted small">Banco de horas</div><h3>{{ fmt(saldo) }}</h3></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="text-muted small">Ajustes pendentes</div><h3>{{ pendentes }}</h3></div></div></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-8"><div class="card"><div class="card-body">
+        <h5 class="fw-bold">Resumo mensal</h5>
+        <div class="row text-center g-3">
+          <div class="col-6 col-md-3"><div class="p-3 bg-body-tertiary rounded">Extras<br><strong>{{ fmt(extras) }}</strong></div></div>
+          <div class="col-6 col-md-3"><div class="p-3 bg-body-tertiary rounded">Atrasos<br><strong>{{ fmt(atrasos) }}</strong></div></div>
+          <div class="col-6 col-md-3"><div class="p-3 bg-body-tertiary rounded">Faltas<br><strong>{{ faltas }}</strong></div></div>
+          <div class="col-6 col-md-3"><div class="p-3 bg-body-tertiary rounded">Conformidade<br><strong>REP-P</strong></div></div>
+        </div>
+      </div></div></div>
+      <div class="col-lg-4"><div class="card"><div class="card-body">
+        <h5 class="fw-bold">Recursos ativos</h5>
+        <ul class="mb-0">
+          <li>GPS obrigatório e cerca geográfica</li>
+          <li>Selfie no registro</li>
+          <li>Histórico imutável com hash</li>
+          <li>AFD, AEJ, PDF e Excel</li>
+          <li>PWA instalável</li>
+        </ul>
+      </div></div></div>
+    </div>
+{% endblock %}
