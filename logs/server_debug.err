@@ -1,9 +1,0 @@
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
- * Running on http://127.0.0.1:5001
-Press CTRL+C to quit
-[2026-06-20 20:52:02,090] WARNING in app: Totem facial bloqueado fora do horario funcionario=MARCOS JULIO funcionario_id=11 tipo=saida_final previsto=17:00 diferenca=232
-127.0.0.1 - - [20/Jun/2026 20:52:02] "POST /totem-facial/registrar-teste HTTP/1.1" 403 -
-127.0.0.1 - - [20/Jun/2026 20:52:05] "GET /login HTTP/1.1" 200 -
-[2026-06-20 20:52:13,078] WARNING in app: Totem facial bloqueado fora do horario funcionario=MARCOS JULIO funcionario_id=11 tipo=saida_final previsto=17:00 diferenca=232
-127.0.0.1 - - [20/Jun/2026 20:52:13] "POST /totem-facial/registrar-teste HTTP/1.1" 403 -
-127.0.0.1 - - [20/Jun/2026 20:52:15] "GET /login HTTP/1.1" 200 -
