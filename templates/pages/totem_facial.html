@@ -109,7 +109,10 @@
   const GEO_MIN_DURATION_MS = 10000;
   const GEO_TARGET_READINGS = 5;
   const GEO_MAX_ACCURACY = 50;
+  const GEO_MAX_WAIT_MS = 45000;
   const GEO_BLOCK_TEXT = "Ponto bloqueado: a localização precisa permanecer ativa e válida durante todo o processo de verificação.";
+  const SECURE_CONTEXT_TEXT = "Chrome no celular exige HTTPS para liberar camera e GPS. Acesse o sistema por HTTPS.";
+  const isSecureOrigin = window.isSecureContext || ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
   const MODEL_URL = "{{ url_for('static', filename='models/face-api') }}";
   const FACE_LIST_URL = "{{ url_for('totem_facial_funcionarios_face') }}";
   const REGISTER_URL = "{{ url_for('totem_facial_registrar_teste') }}";
@@ -362,6 +365,9 @@
   }
 
   async function startCamera() {
+    if (!isSecureOrigin || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error(SECURE_CONTEXT_TEXT);
+    }
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
     video.srcObject = stream;
     cameraReady = true;
@@ -370,6 +376,10 @@
   }
 
   function startGps() {
+    if (!isSecureOrigin) {
+      failGps(SECURE_CONTEXT_TEXT);
+      return;
+    }
     if (!navigator.geolocation) {
       failGps("GPS indisponivel neste navegador.");
       return;
@@ -389,7 +399,12 @@
         return;
       }
       if (!Number.isFinite(pos.coords.accuracy) || pos.coords.accuracy > GEO_MAX_ACCURACY) {
-        failGps("Precisao do GPS insuficiente. Ative alta precisao e tente novamente.");
+        const accuracyText = Number.isFinite(pos.coords.accuracy) ? `${Math.round(pos.coords.accuracy)} m` : "--";
+        setBanner("neutral", "Aguardando GPS", `Precisao atual ${accuracyText}. Ative alta precisao.`, 0);
+        setStatus(`Aguardando precisao do GPS (${accuracyText}).`);
+        if (Date.now() - gpsStartedAt > GEO_MAX_WAIT_MS && gpsReadings.length === 0) {
+          failGps("Precisao do GPS insuficiente. Ative alta precisao e tente novamente.");
+        }
         return;
       }
       const reading = {
@@ -405,7 +420,12 @@
       approveGpsIfReady();
       updateChecklist();
     }, error => {
-      failGps(error.message || GEO_BLOCK_TEXT);
+      if (error && error.code === error.PERMISSION_DENIED) {
+        failGps("Permissao de localizacao negada. Libere o GPS nas permissoes do site no Chrome.");
+        return;
+      }
+      setBanner("neutral", "Aguardando GPS", error.message || "Aguardando sinal GPS.", 0);
+      setStatus(error.message || "Aguardando sinal GPS.");
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
   }
 
@@ -674,12 +694,12 @@
     startGps();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && gpsStartedAt && !gpsReady) {
+    if (document.hidden && gpsStartedAt && gpsReadings.length > 0 && !gpsReady) {
       failGps(GEO_BLOCK_TEXT);
     }
   });
   window.addEventListener("pagehide", () => {
-    if (gpsStartedAt && !gpsReady) failGps(GEO_BLOCK_TEXT);
+    if (gpsStartedAt && gpsReadings.length > 0 && !gpsReady) failGps(GEO_BLOCK_TEXT);
   });
   updateChecklist();
   boot();

@@ -41,7 +41,7 @@ SELFIE_DIR = os.path.join(BASE_DIR, "selfies")
 FACE_VIDEO_DIR = os.path.join(SELFIE_DIR, "videos_faciais")
 ANEXO_DIR = os.path.join(BASE_DIR, "anexos_ajustes")
 DEFAULT_SECRET_KEY = "ponto-eletronico-repp-dev"
-APP_ASSET_VERSION = "20260621.16"
+APP_ASSET_VERSION = "20260623.4"
 GEO_VALIDATION_MIN_SECONDS = 10
 GEO_VALIDATION_MAX_GAP_SECONDS = 6
 GEO_VALIDATION_MIN_READINGS = 3
@@ -51,6 +51,8 @@ PASSWORD_HASH_PREFIXES = ("pbkdf2:", "scrypt:")
 ALLOWED_ANEXO_EXTENSIONS = {
     ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".doc", ".docx", ".xls", ".xlsx", ".txt"
 }
+LOCALHOST_NAMES = ("localhost", "127.0.0.1", "::1")
+MOBILE_HTTPS_PATHS = ("/registrar", "/totem-facial", "/terminal-ponto")
 
 app = Flask(__name__)
 app.config.from_object(get_config())
@@ -193,6 +195,39 @@ def verify_password(stored_password, candidate_password):
     return stored_password == candidate_password
 
 
+def request_is_secure():
+    return request.is_secure or request.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+
+def request_is_mobile():
+    user_agent = request.headers.get("User-Agent", "")
+    return any(token in user_agent for token in ("Android", "iPhone", "iPad", "iPod", "Mobile", "Tablet"))
+
+
+def request_host_without_port():
+    return (request.host or "").split(":", 1)[0].strip("[]").lower()
+
+
+def request_is_localhost():
+    return request_host_without_port() in LOCALHOST_NAMES
+
+
+def request_needs_mobile_https():
+    return any(request.path == path or request.path.startswith(path + "/") for path in MOBILE_HTTPS_PATHS)
+
+
+@app.before_request
+def enforce_mobile_https_for_media():
+    if request.method not in ("GET", "HEAD"):
+        return None
+    if request_is_secure() or request_is_localhost() or not request_is_mobile() or not request_needs_mobile_https():
+        return None
+    host = request_host_without_port()
+    target_port = os.environ.get("PONTO_HTTPS_PORT", "5443")
+    query = f"?{request.query_string.decode('utf-8')}" if request.query_string else ""
+    return redirect(f"https://{host}:{target_port}{request.path}{query}", code=302)
+
+
 @app.before_request
 def validate_csrf():
     if request.method != "POST":
@@ -209,6 +244,7 @@ def security_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=(self), microphone=()")
     if request.path in ("/totem-facial", "/terminal-ponto") or request.path.startswith("/totem-facial/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
@@ -2089,6 +2125,19 @@ def icon():
 @app.route("/")
 def root():
     return redirect(url_for("dashboard" if session.get("user_id") else "login"))
+
+
+@app.route("/diagnostico-mobile")
+def diagnostico_mobile():
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+    https_ativo = request.is_secure or forwarded_proto.lower() == "https"
+    return page_template(
+        "pages/diagnostico_mobile.html",
+        title="Diagnostico mobile",
+        https_ativo=https_ativo,
+        host=request.host,
+        user_agent=request.headers.get("User-Agent", ""),
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -4006,4 +4055,7 @@ def simple_crud_page(title, rows, fields, labels):
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="127.0.0.1", port=5001, debug=False)
+    host = os.environ.get("PONTO_HOST", "127.0.0.1")
+    port = int(os.environ.get("PONTO_PORT", "5001"))
+    ssl_context = "adhoc" if os.environ.get("PONTO_HTTPS", "0").lower() in ("1", "true", "yes") else None
+    app.run(host=host, port=port, debug=False, ssl_context=ssl_context)

@@ -27,9 +27,14 @@
 {% if session.get('user_id') %}
 <nav class="mobile-nav navbar navbar-dark px-3">
   <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}"><i class="bi bi-shield-check"></i> Ponto REP-P</a>
-  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu"><span class="navbar-toggler-icon"></span></button>
-  <div class="collapse navbar-collapse" id="mobileMenu">
-    <div class="d-grid gap-2 py-3">
+  <button class="navbar-toggler mobile-menu-toggle" type="button" aria-controls="mobileMenu" aria-expanded="false" aria-label="Abrir menu"><span class="navbar-toggler-icon"></span></button>
+  <div class="mobile-menu-backdrop" data-mobile-menu-close></div>
+  <div class="mobile-menu-panel" id="mobileMenu" aria-hidden="true">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+      <strong>Menu</strong>
+      <button class="btn btn-outline-light btn-sm mobile-menu-close" type="button" data-mobile-menu-close aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="d-grid gap-2">
       {{ nav_links('btn btn-outline-light')|safe }}
       <a class="btn btn-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left"></i> Sair</a>
     </div>

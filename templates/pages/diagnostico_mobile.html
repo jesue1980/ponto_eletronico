@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="page-hero">
+  <div>
+    <div class="hero-kicker">Diagnostico mobile</div>
+    <h3 class="fw-bold mb-1">Camera, GPS e dispositivo</h3>
+    <div class="text-muted">Use esta tela no celular para verificar permissao do navegador antes de bater ponto.</div>
+  </div>
+</div>
+
+<div id="diagnosticoMobile" class="card">
+  <div class="card-body">
+    {% if not https_ativo %}
+    <div class="alert alert-danger">
+      Para usar camera e localizacao no celular, acesse por HTTPS. Navegadores bloqueiam camera/GPS em HTTP.
+      <div class="mt-2">Diagnostico HTTPS: <strong>https://{{ host.split(':')[0] }}:5443/diagnostico-mobile</strong></div>
+      <div class="mt-1">Registrar ponto por HTTPS: <strong>https://{{ host.split(':')[0] }}:5443/registrar</strong></div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      HTTPS ativo para {{ host }}. Toque no botao abaixo para testar as permissoes no navegador.
+    </div>
+    {% endif %}
+
+    <div class="mobile-permission-checklist diagnostic-list mb-3">
+      <div data-diag="https"><span>HTTPS ativo</span><strong>{{ "ativo" if https_ativo else "inativo" }}</strong></div>
+      <div data-diag="camera"><span>Camera disponivel</span><strong>nao testada</strong></div>
+      <div data-diag="gps"><span>GPS permitido</span><strong>nao testado</strong></div>
+      <div data-diag="browser"><span>Navegador</span><strong>detectando</strong></div>
+      <div data-diag="os"><span>Sistema operacional</span><strong>detectando</strong></div>
+      <div data-diag="device"><span>Status do dispositivo</span><strong>detectando</strong></div>
+    </div>
+
+    <button class="btn btn-primary btn-lg w-100 mb-3" type="button" id="diagnosticoPermissoes">
+      <i class="bi bi-phone"></i> Testar camera e GPS
+    </button>
+
+    <div class="alert alert-warning" id="diagnosticoResultado">
+      No iPhone/Safari e Chrome Android, as permissoes so aparecem depois de tocar no botao.
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3">Passo a passo no celular</h5>
+        <ol class="mb-0 diagnostic-steps">
+          <li>Acesse o sistema por HTTPS, nao por HTTP.</li>
+          <li>No Android/Chrome, toque no cadeado da barra de endereco e permita Camera e Localizacao.</li>
+          <li>No iPhone/Safari, toque em AA ou no icone do site, abra Ajustes do Site e permita Camera e Localizacao.</li>
+          <li>Ative a Localizacao do aparelho e, no Android, use o modo Alta precisao.</li>
+          <li>Volte para Registrar ponto e toque em Ativar camera e GPS no celular.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
