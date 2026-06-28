@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+  <div>
+    <h3 class="fw-bold mb-1">Hierarquia</h3>
+    <div class="text-muted">Perfis, chefias, secretários e RH responsáveis dentro do cadastro de pessoas.</div>
+  </div>
+  <a class="btn btn-outline-primary" href="{{ url_for('funcionarios') }}"><i class="bi bi-people"></i> Editar pessoas</a>
+</div>
+
+<div class="row g-3">
+  {% for r in rows %}
+  <div class="col-xl-4 col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-3">
+          <div>
+            <h5 class="mb-1">{{ r.nome }}</h5>
+            <div class="text-muted small">{{ r.matricula }}{% if r.cargo %} · {{ r.cargo }}{% endif %}</div>
+          </div>
+          <span class="badge bg-primary">{{ r.papel_operacional or 'funcionario' }}</span>
+        </div>
+        <hr>
+        <div class="d-grid gap-2 small">
+          <div><span class="text-muted">Secretaria:</span> <strong>{{ r.secretaria or '-' }}</strong></div>
+          <div><span class="text-muted">Departamento:</span> <strong>{{ r.departamento or '-' }}</strong></div>
+          <div><span class="text-muted">Chefia responsável:</span> <strong>{{ r.chefia or '-' }}</strong></div>
+          <div><span class="text-muted">Secretário responsável:</span> <strong>{{ r.secretario or r.secretario_pasta or '-' }}</strong></div>
+          <div><span class="text-muted">RH responsável:</span> <strong>{{ r.rh_local or '-' }}</strong></div>
+          {% if r.papel_operacional in ['chefia_imediata', 'gestor'] %}
+          <div><span class="text-muted">Funcionários subordinados:</span> <strong>{{ r.subordinados }}</strong></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12"><div class="alert alert-info">Nenhuma pessoa ativa encontrada.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

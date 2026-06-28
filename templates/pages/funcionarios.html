@@ -86,7 +86,7 @@
 }
 </style>
 <div class="funcionarios-future">
-<div class="mb-4"><h3 class="fw-bold">Funcionarios</h3><div class="text-muted">Cadastro completo com empresa, local, jornada e vinculo operacional.</div></div>
+<div class="mb-4"><h3 class="fw-bold">Pessoas</h3><div class="text-muted">Cadastro administrativo de servidores, vínculos, jornada e hierarquia.</div></div>
     <div class="row g-3">
       <div class="col-lg-4"><div class="card"><div class="card-body">
         <h5 id="funcionarioFormTitulo">Novo funcionario</h5><form method="post" enctype="multipart/form-data" class="d-grid gap-3" id="funcionarioCadastroForm">{{ csrf_input()|safe }}
@@ -94,7 +94,11 @@
           <input class="form-control" name="nome" placeholder="Nome completo" required>
           <input class="form-control" name="cpf" placeholder="CPF" required>
           <input class="form-control" name="matricula" placeholder="Matricula" required>
+          <label class="form-label mb-0">Data de nascimento</label>
+          <input class="form-control" type="date" name="data_nascimento">
           <input class="form-control" name="cargo" placeholder="Cargo">
+          <input class="form-control" name="secretaria" placeholder="Secretaria">
+          <input class="form-control" name="departamento" placeholder="Departamento">
           <input class="form-control" type="email" name="email" placeholder="E-mail">
           <input class="form-control" name="telefone" placeholder="Telefone">
           <input class="form-control" name="whatsapp" placeholder="WhatsApp com DDD">
@@ -125,32 +129,26 @@
           <select class="form-select" name="rh_local_id">{% for rh in rh_rows %}<option value="{{ rh.id }}">{{ rh.nome }} - {{ rh.unidade or 'Unidade' }}</option>{% endfor %}</select>
           <select class="form-select" name="chefia_id">{% for c in chefias_rows %}<option value="{{ c.id }}">{{ c.nome }} - {{ c.cargo or 'Chefia' }}</option>{% endfor %}</select>
           <select class="form-select" name="secretario_id">{% for s in secretarios_rows %}<option value="{{ s.id }}">{{ s.pasta }} - {{ s.nome }}</option>{% endfor %}</select>
-          <div class="border rounded p-3">
-            <div class="fw-semibold mb-2">Biometria facial</div>
-            <div class="d-grid gap-2">
-              <button class="btn btn-outline-primary" type="button" id="capturarFotoNovoFuncionario">Capturar Foto pela Camera</button>
-              <button class="btn btn-outline-primary" type="button" id="capturarVideoNovoFuncionario">Cadastrar Face por Mini Video</button>
-            </div>
-            <div class="small mt-2">Foto facial cadastrada: <strong id="novoFotoStatus">NAO</strong></div>
-            <div class="small">Mini video cadastrado: <strong id="novoVideoStatus">NAO</strong></div>
-            <div class="small text-muted mt-2">Opcional para administrador: enviar arquivo de imagem.</div>
-            <input class="form-control mt-2" type="file" name="foto_base" accept="image/*">
-            <input type="hidden" name="face_image_data" id="novoFaceImageData">
-            <input type="hidden" name="face_image_embedding_json" id="novoFaceImageEmbedding">
-            <input type="hidden" name="face_video_data" id="novoFaceVideoData">
-            <input type="hidden" name="face_video_foto_principal" id="novoFaceVideoFotoPrincipal">
-            <input type="hidden" name="face_video_auxiliares_json" id="novoFaceVideoAuxiliares">
-            <input type="hidden" name="face_video_embeddings_json" id="novoFaceVideoEmbeddings">
-            <input type="hidden" name="face_video_validacoes_json" id="novoFaceVideoValidacoes">
-          </div>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="reconhecimento_facial_ativo" value="1" id="reconhecimentoFacialAtivo">
-            <label class="form-check-label" for="reconhecimentoFacialAtivo">Reconhecimento facial ativo</label>
-          </div>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="permite_totem_facial" value="1" id="permiteTotemFacial">
-            <label class="form-check-label" for="permiteTotemFacial">Permitir uso do Totem Facial</label>
-          </div>
+          <select class="form-select" name="papel_operacional" id="papelOperacional">
+            <option value="funcionario">Funcionario comum</option>
+            <option value="chefia_imediata">Chefia imediata</option>
+            <option value="gestor">Gestor</option>
+            <option value="rh">RH</option>
+          </select>
+          <input class="form-control" name="escala" placeholder="Escala">
+          <select class="form-select" name="tipo_servidor">
+            <option value="">Tipo de servidor</option>
+            <option value="efetivo">Efetivo</option>
+            <option value="comissionado">Comissionado</option>
+            <option value="contratado">Contratado</option>
+            <option value="estagiario">Estagiário</option>
+          </select>
+          <select class="form-select" name="situacao">
+            <option value="ativo">Ativo</option>
+            <option value="afastado">Afastado</option>
+            <option value="ferias">Férias</option>
+            <option value="inativo">Inativo</option>
+          </select>
           <hr>
           <input class="form-control" name="login" id="cadastroLogin" placeholder="Login" required>
           <input class="form-control" type="password" name="senha" id="cadastroSenha" placeholder="Senha" required>
@@ -201,8 +199,7 @@
             <td class="funcionario-actions-cell">
               <div class="funcionario-actions">
                 <button class="btn btn-sm btn-outline-secondary editar-funcionario" type="button" data-funcionario-id="{{ f.id }}"><i class="bi bi-pencil-square"></i> Editar</button>
-                <button class="btn btn-sm btn-outline-primary capturar-foto-facial" type="button" data-funcionario-id="{{ f.id }}" data-funcionario-nome="{{ f.nome }}"><i class="bi bi-camera"></i> Nova foto</button>
-                <button class="btn btn-sm btn-outline-primary cadastro-video-facial" type="button" data-funcionario-id="{{ f.id }}" data-funcionario-nome="{{ f.nome }}"><i class="bi bi-camera-video"></i> Novo video</button>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('biometria_facial', funcionario_id=f.id) }}"><i class="bi bi-person-bounding-box"></i> Biometria</a>
                 {% if f.ativo %}
                   <button class="btn btn-sm btn-outline-danger inativar-funcionario" type="button" data-funcionario-id="{{ f.id }}"><i class="bi bi-trash3"></i> Excluir/Inativar</button>
                 {% else %}
@@ -247,7 +244,10 @@
             <div class="col-md-6"><label class="form-label">Nome</label><input class="form-control" name="nome" id="editNome" required></div>
             <div class="col-md-3"><label class="form-label">CPF</label><input class="form-control" name="cpf" id="editCpf" required></div>
             <div class="col-md-3"><label class="form-label">Matricula</label><input class="form-control" name="matricula" id="editMatricula" required></div>
+            <div class="col-md-4"><label class="form-label">Data nascimento</label><input class="form-control" type="date" name="data_nascimento" id="editDataNascimento"></div>
             <div class="col-md-4"><label class="form-label">Cargo</label><input class="form-control" name="cargo" id="editCargo"></div>
+            <div class="col-md-4"><label class="form-label">Secretaria</label><input class="form-control" name="secretaria" id="editSecretaria"></div>
+            <div class="col-md-4"><label class="form-label">Departamento</label><input class="form-control" name="departamento" id="editDepartamento"></div>
             <div class="col-md-4"><label class="form-label">E-mail</label><input class="form-control" type="email" name="email" id="editEmail"></div>
             <div class="col-md-2"><label class="form-label">Telefone</label><input class="form-control" name="telefone" id="editTelefone"></div>
             <div class="col-md-2"><label class="form-label">Admissao</label><input class="form-control" type="date" name="data_admissao" id="editDataAdmissao"></div>
@@ -270,6 +270,13 @@
             <div class="col-md-4"><label class="form-label">RH Local</label><select class="form-select" name="rh_local_id" id="editRhLocalId">{% for rh in rh_rows %}<option value="{{ rh.id }}">{{ rh.nome }} - {{ rh.unidade or 'Unidade' }}</option>{% endfor %}</select></div>
             <div class="col-md-4"><label class="form-label">Chefia imediata</label><select class="form-select" name="chefia_id" id="editChefiaId">{% for c in chefias_rows %}<option value="{{ c.id }}">{{ c.nome }} - {{ c.cargo or 'Chefia' }}</option>{% endfor %}</select></div>
             <div class="col-md-4"><label class="form-label">Secretario</label><select class="form-select" name="secretario_id" id="editSecretarioId">{% for s in secretarios_rows %}<option value="{{ s.id }}">{{ s.pasta }} - {{ s.nome }}</option>{% endfor %}</select></div>
+            <div class="col-md-4"><label class="form-label">Papel operacional</label><select class="form-select" name="papel_operacional" id="editPapelOperacional">
+              <option value="funcionario">Funcionario comum</option>
+              <option value="chefia_imediata">Chefia imediata</option>
+              <option value="gestor">Gestor</option>
+              <option value="rh">RH</option>
+            </select></div>
+            <div class="col-md-4"><label class="form-label">Escala</label><input class="form-control" name="escala" id="editEscala"></div>
             <div class="col-md-4"><label class="form-label">Login de acesso</label><input class="form-control" name="login" id="editLogin" placeholder="Opcional para acesso ao sistema"></div>
             <div class="col-md-4"><label class="form-label">Nova senha</label><input class="form-control" type="password" name="senha" id="editSenha" placeholder="Preencha somente para alterar"></div>
             <div class="col-md-4"><label class="form-label">Perfil de acesso</label><select class="form-select" name="perfil_acesso" id="editPerfil">
@@ -279,8 +286,19 @@
               <option value="Secretário da Pasta">Secretario</option>
               <option value="Administrador Principal">Administrador Principal</option>
             </select></div>
-            <div class="col-md-6"><div class="form-check form-switch mt-4"><input class="form-check-input" type="checkbox" name="reconhecimento_facial_ativo" value="1" id="editReconhecimento"><label class="form-check-label" for="editReconhecimento">Reconhecimento facial ativo</label></div></div>
-            <div class="col-md-6"><div class="form-check form-switch mt-4"><input class="form-check-input" type="checkbox" name="permite_totem_facial" value="1" id="editPermiteTotem"><label class="form-check-label" for="editPermiteTotem">Permitir Totem Facial</label></div></div>
+            <div class="col-md-4"><label class="form-label">Tipo de servidor</label><select class="form-select" name="tipo_servidor" id="editTipoServidor">
+              <option value="">Tipo de servidor</option>
+              <option value="efetivo">Efetivo</option>
+              <option value="comissionado">Comissionado</option>
+              <option value="contratado">Contratado</option>
+              <option value="estagiario">Estagiário</option>
+            </select></div>
+            <div class="col-md-4"><label class="form-label">Situação</label><select class="form-select" name="situacao" id="editSituacao">
+              <option value="ativo">Ativo</option>
+              <option value="afastado">Afastado</option>
+              <option value="ferias">Férias</option>
+              <option value="inativo">Inativo</option>
+            </select></div>
           </div>
           <div id="editarFuncionarioStatus" class="alert alert-info mt-3 d-none"></div>
         </div>
@@ -352,7 +370,6 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/face-api.min.js') }}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const FACIAL_MODEL_URL = "{{ url_for('static', filename='models/face-api') }}";
@@ -638,7 +655,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setFormValue(form, "nome", funcionario.nome);
     setFormValue(form, "cpf", funcionario.cpf);
     setFormValue(form, "matricula", funcionario.matricula);
+    setFormValue(form, "data_nascimento", funcionario.data_nascimento);
     setFormValue(form, "cargo", funcionario.cargo);
+    setFormValue(form, "secretaria", funcionario.secretaria);
+    setFormValue(form, "departamento", funcionario.departamento);
     setFormValue(form, "email", funcionario.email);
     setFormValue(form, "telefone", funcionario.telefone);
     setFormValue(form, "whatsapp", funcionario.whatsapp);
@@ -649,6 +669,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setSelectMultiple(form.elements["locais_autorizados"], funcionario.locais_autorizados);
     setFormValue(form, "jornada_id", funcionario.jornada_id);
     setFormValue(form, "tipo_jornada", funcionario.horario_saida_almoco && funcionario.horario_retorno_almoco ? "8 horas com intervalo" : "Escala personalizada");
+    setFormValue(form, "escala", funcionario.escala);
     setFormValue(form, "horario_entrada", funcionario.horario_entrada);
     setFormValue(form, "horario_saida_almoco", funcionario.horario_saida_almoco);
     setFormValue(form, "horario_retorno_almoco", funcionario.horario_retorno_almoco);
@@ -658,10 +679,13 @@ document.addEventListener("DOMContentLoaded", () => {
     setFormValue(form, "rh_local_id", funcionario.rh_local_id);
     setFormValue(form, "chefia_id", funcionario.chefia_id);
     setFormValue(form, "secretario_id", funcionario.secretario_id);
+    setFormValue(form, "papel_operacional", funcionario.papel_operacional || "funcionario");
+    setFormValue(form, "tipo_servidor", funcionario.tipo_servidor);
+    setFormValue(form, "situacao", funcionario.situacao || "ativo");
     setFormValue(form, "login", funcionario.login);
     setFormValue(form, "perfil_acesso", funcionario.perfil_acesso || "FuncionÃƒÂ¡rio");
-    document.getElementById("reconhecimentoFacialAtivo").checked = !!funcionario.reconhecimento_facial_ativo;
-    document.getElementById("permiteTotemFacial").checked = !!(funcionario.permite_totem_facial || funcionario.permitir_totem_facial);
+    if (document.getElementById("reconhecimentoFacialAtivo")) document.getElementById("reconhecimentoFacialAtivo").checked = !!funcionario.reconhecimento_facial_ativo;
+    if (document.getElementById("permiteTotemFacial")) document.getElementById("permiteTotemFacial").checked = !!(funcionario.permite_totem_facial || funcionario.permitir_totem_facial);
     senha.required = false;
     confirmar.required = false;
     login.required = false;
@@ -821,7 +845,10 @@ document.addEventListener("DOMContentLoaded", () => {
       setValue("editNome", f.nome);
       setValue("editCpf", f.cpf);
       setValue("editMatricula", f.matricula);
+      setValue("editDataNascimento", f.data_nascimento);
       setValue("editCargo", f.cargo);
+      setValue("editSecretaria", f.secretaria);
+      setValue("editDepartamento", f.departamento);
       setValue("editEmail", f.email);
       setValue("editTelefone", f.telefone);
       setValue("editDataAdmissao", f.data_admissao);
@@ -829,6 +856,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setValue("editLocalId", f.local_id);
       setValue("editJornadaId", f.jornada_id);
       setValue("editTipoJornada", inferTipoJornada(f));
+      setValue("editEscala", f.escala);
       setValue("editEntrada", f.horario_entrada);
       setValue("editSaidaAlmoco", f.horario_saida_almoco);
       setValue("editRetornoAlmoco", f.horario_retorno_almoco);
@@ -838,11 +866,14 @@ document.addEventListener("DOMContentLoaded", () => {
       setValue("editRhLocalId", f.rh_local_id);
       setValue("editChefiaId", f.chefia_id);
       setValue("editSecretarioId", f.secretario_id);
+      setValue("editPapelOperacional", f.papel_operacional || "funcionario");
+      setValue("editTipoServidor", f.tipo_servidor);
+      setValue("editSituacao", f.situacao || "ativo");
       setValue("editLogin", f.login);
       setValue("editSenha", "");
       setValue("editPerfil", f.perfil_acesso || "Funcionário");
-      document.getElementById("editReconhecimento").checked = !!f.reconhecimento_facial_ativo;
-      document.getElementById("editPermiteTotem").checked = !!(f.permitir_totem_facial || f.permite_totem_facial);
+      if (document.getElementById("editReconhecimento")) document.getElementById("editReconhecimento").checked = !!f.reconhecimento_facial_ativo;
+      if (document.getElementById("editPermiteTotem")) document.getElementById("editPermiteTotem").checked = !!(f.permitir_totem_facial || f.permite_totem_facial);
       const locais = new Set((f.locais_autorizados || []).map(String));
       document.querySelectorAll("#editLocaisAutorizados option").forEach(option => option.selected = locais.has(option.value));
       applyTipoJornada(editTipoJornada, editSaidaAlmoco, editRetornoAlmoco, editSaidaFinal);

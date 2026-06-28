@@ -1,0 +1,402 @@
+<style>
+  .bio-shell { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 1rem; }
+  .bio-panel { border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 1rem; background: var(--bs-body-bg); }
+  .bio-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  .bio-actions .btn { min-height: 3rem; font-weight: 600; }
+  .bio-video-wrap { position: relative; width: 100%; background: #111; border-radius: .5rem; overflow: hidden; aspect-ratio: 4 / 3; }
+  .bio-video-wrap video, .bio-video-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .bio-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+  .bio-status-card { border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: .75rem; min-height: 5.5rem; }
+  .bio-status-card strong { display: block; font-size: 1.05rem; }
+  .bio-preview { max-height: 180px; border-radius: .5rem; object-fit: cover; width: 100%; background: #f2f2f2; }
+  @media (max-width: 991px) {
+    .bio-shell { grid-template-columns: 1fr; }
+    .bio-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 575px) {
+    .bio-actions { grid-template-columns: 1fr; }
+    .bio-status-grid { grid-template-columns: 1fr; }
+    .bio-panel { padding: .85rem; }
+  }
+</style>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Biometria Facial</h1>
+    <div class="text-muted small">Cadastro separado de foto principal, mini video, embeddings e status.</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('funcionarios') }}"><i class="bi bi-people"></i> Funcionarios</a>
+</div>
+
+<div class="alert alert-warning d-none" id="bioHttpsAlert">
+  Para usar camera e localizacao no celular, acesse por HTTPS. Navegadores bloqueiam camera/GPS em HTTP.
+</div>
+
+<div class="bio-shell">
+  <aside class="bio-panel">
+    <label class="form-label fw-semibold" for="bioSearch">Pesquisar</label>
+    <input class="form-control form-control-lg mb-3" id="bioSearch" placeholder="Nome, matrícula ou secretaria">
+    <label class="form-label fw-semibold" for="bioFuncionario">Funcionario ativo</label>
+    <select class="form-select form-select-lg mb-3" id="bioFuncionario">
+      <option value="">Selecione</option>
+      {% for f in funcionarios_rows %}
+        <option value="{{ f.id }}" data-search="{{ (f.nome ~ ' ' ~ (f.matricula or '') ~ ' ' ~ (f.secretaria or ''))|lower }}">{{ f.nome }}{% if f.matricula %} - {{ f.matricula }}{% endif %}{% if f.secretaria %} - {{ f.secretaria }}{% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <div class="bio-status-grid">
+      <div class="bio-status-card">
+        <span class="text-muted small">Foto principal</span>
+        <strong id="bioStatusFoto">-</strong>
+      </div>
+      <div class="bio-status-card">
+        <span class="text-muted small">Mini video</span>
+        <strong id="bioStatusVideo">-</strong>
+      </div>
+      <div class="bio-status-card">
+        <span class="text-muted small">Embeddings</span>
+        <strong id="bioStatusEmbedding">-</strong>
+      </div>
+      <div class="bio-status-card">
+        <span class="text-muted small">Biometria</span>
+        <strong id="bioStatusAtivo">-</strong>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-3 mb-0">
+      No celular, toque primeiro em <strong>Ativar camera</strong> e permita o acesso quando o navegador pedir.
+    </div>
+  </aside>
+
+  <main class="bio-panel">
+    <div class="bio-video-wrap mb-3">
+      <video id="bioVideo" playsinline autoplay muted></video>
+      <canvas id="bioCanvas"></canvas>
+    </div>
+
+    <div class="bio-actions mb-3">
+      <button class="btn btn-primary" type="button" id="bioStartCamera"><i class="bi bi-camera-video"></i> Ativar camera</button>
+      <button class="btn btn-outline-primary" type="button" id="bioCapturePhoto" disabled><i class="bi bi-camera"></i> Foto principal</button>
+      <button class="btn btn-outline-primary" type="button" id="bioRecordVideo" disabled><i class="bi bi-record-circle"></i> Mini video</button>
+      <button class="btn btn-warning" type="button" id="bioTestRecognition" disabled><i class="bi bi-search"></i> Testar reconhecimento</button>
+      <button class="btn btn-success" type="button" id="bioRefreshStatus"><i class="bi bi-arrow-clockwise"></i> Atualizar status</button>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100">
+          <div class="fw-semibold mb-2">Foto facial principal</div>
+          <img class="bio-preview d-none" id="bioPhotoPreview" alt="Previa da foto facial">
+          <div class="small text-muted mt-2" id="bioPhotoInfo">Nenhuma foto capturada nesta tela.</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100">
+          <div class="fw-semibold mb-2">Mini video facial</div>
+          <video class="bio-preview d-none" id="bioVideoPreview" playsinline controls></video>
+          <div class="small text-muted mt-2" id="bioVideoInfo">Nenhum video gravado nesta tela.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-secondary mt-3 mb-0" id="bioMessage">Selecione um funcionario ativo para comecar.</div>
+    <div class="alert alert-info mt-3 d-none" id="bioTestResult"></div>
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/face-api.min.js') }}?v={{ asset_version }}"></script>
+<script>
+(() => {
+  const funcionarios = {{ funcionarios_rows|tojson }};
+  const selectedFromUrl = "{{ funcionario_id }}";
+  const MODEL_URL = "{{ url_for('static', filename='models/face-api') }}";
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const isSecureOrigin = window.isSecureContext || isLocalhost;
+
+  const els = {
+    search: document.getElementById("bioSearch"),
+    select: document.getElementById("bioFuncionario"),
+    httpsAlert: document.getElementById("bioHttpsAlert"),
+    video: document.getElementById("bioVideo"),
+    canvas: document.getElementById("bioCanvas"),
+    start: document.getElementById("bioStartCamera"),
+    photo: document.getElementById("bioCapturePhoto"),
+    record: document.getElementById("bioRecordVideo"),
+    test: document.getElementById("bioTestRecognition"),
+    refresh: document.getElementById("bioRefreshStatus"),
+    msg: document.getElementById("bioMessage"),
+    testResult: document.getElementById("bioTestResult"),
+    photoPreview: document.getElementById("bioPhotoPreview"),
+    photoInfo: document.getElementById("bioPhotoInfo"),
+    videoPreview: document.getElementById("bioVideoPreview"),
+    videoInfo: document.getElementById("bioVideoInfo"),
+    statusFoto: document.getElementById("bioStatusFoto"),
+    statusVideo: document.getElementById("bioStatusVideo"),
+    statusEmbedding: document.getElementById("bioStatusEmbedding"),
+    statusAtivo: document.getElementById("bioStatusAtivo")
+  };
+
+  let stream = null;
+  let modelsReady = false;
+
+  function selectedId() {
+    return Number(els.select.value || 0);
+  }
+
+  function selectedFuncionario() {
+    const id = selectedId();
+    return funcionarios.find(f => Number(f.id) === id);
+  }
+
+  function setMessage(type, text) {
+    els.msg.className = `alert alert-${type} mt-3 mb-0`;
+    els.msg.textContent = text;
+  }
+
+  function permissionHelp(error) {
+    const name = error && error.name ? error.name : "";
+    if (!isSecureOrigin) return "Acesse por HTTPS no celular. Chrome, Android e iPhone bloqueiam camera em HTTP/IP local.";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") return "Permita a camera no navegador e tente novamente.";
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") return "Nenhuma camera foi encontrada. Verifique a camera do celular.";
+    if (name === "NotReadableError" || name === "TrackStartError") return "A camera esta ocupada por outro aplicativo. Feche outros apps e tente novamente.";
+    return "Nao foi possivel acessar a camera. Use HTTPS, permita a camera no navegador e tente novamente.";
+  }
+
+  function updateStatus(f) {
+    if (!f) {
+      els.statusFoto.textContent = "-";
+      els.statusVideo.textContent = "-";
+      els.statusEmbedding.textContent = "-";
+      els.statusAtivo.textContent = "-";
+      els.photo.disabled = true;
+      els.record.disabled = true;
+      els.test.disabled = true;
+      return;
+    }
+    els.statusFoto.textContent = (f.foto_base_path || f.foto_facial_cadastrada) ? "SIM" : "NAO";
+    els.statusVideo.textContent = (f.biometria_facial_id || f.mini_video_cadastrado) ? "SIM" : "NAO";
+    els.statusEmbedding.textContent = f.biometria_facial_id ? "SIM" : "PENDENTE";
+    els.statusAtivo.textContent = f.reconhecimento_facial_ativo ? "ATIVA" : "INATIVA";
+    const canUseCamera = Boolean(stream && isSecureOrigin);
+    els.photo.disabled = !canUseCamera;
+    els.record.disabled = !canUseCamera;
+    els.test.disabled = !canUseCamera;
+  }
+
+  async function refreshStatus() {
+    const id = selectedId();
+    if (!id) {
+      updateStatus(null);
+      setMessage("info", "Selecione um funcionario ativo para comecar.");
+      return;
+    }
+    const response = await fetch(`/api/funcionarios/${id}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.erro || "Nao foi possivel atualizar o status.");
+    const idx = funcionarios.findIndex(f => Number(f.id) === id);
+    if (idx >= 0) funcionarios[idx] = data.funcionario;
+    updateStatus(data.funcionario);
+  }
+
+  async function loadModels() {
+    if (modelsReady) return;
+    if (!window.faceapi) throw new Error("face-api.js nao foi carregado.");
+    setMessage("info", "Carregando modelos faciais...");
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    modelsReady = true;
+  }
+
+  async function startCamera() {
+    if (!selectedId()) {
+      setMessage("warning", "Selecione um funcionario ativo antes de ativar a camera.");
+      return;
+    }
+    if (!isSecureOrigin) {
+      setMessage("danger", "Acesse por HTTPS no celular. Navegadores bloqueiam camera/GPS em HTTP.");
+      return;
+    }
+    try {
+      await loadModels();
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      els.video.srcObject = stream;
+      await els.video.play();
+      updateStatus(selectedFuncionario());
+      setMessage("success", "Camera liberada. Agora capture a foto principal ou grave o mini video.");
+    } catch (error) {
+      console.error("Erro camera biometria", error);
+      setMessage("danger", permissionHelp(error));
+      stream = null;
+      updateStatus(selectedFuncionario());
+    }
+  }
+
+  async function detectFace() {
+    await loadModels();
+    const result = await faceapi.detectSingleFace(
+      els.video,
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 })
+    ).withFaceLandmarks().withFaceDescriptor();
+    if (!result) throw new Error("Centralize o rosto, melhore a iluminacao e tente novamente.");
+    return result;
+  }
+
+  async function capturePhoto() {
+    const id = selectedId();
+    if (!id || !stream) return;
+    try {
+      const result = await detectFace();
+      const canvas = els.canvas;
+      canvas.width = els.video.videoWidth || 640;
+      canvas.height = els.video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(els.video, 0, 0, canvas.width, canvas.height);
+      const imageData = canvas.toDataURL("image/jpeg", 0.9);
+      const formData = new FormData();
+      formData.append("face_image_data", imageData);
+      formData.append("face_image_embedding_json", JSON.stringify(Array.from(result.descriptor)));
+      const response = await fetch(`/api/funcionarios/${id}/foto-facial-camera`, { method: "POST", body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.erro || "Nao foi possivel salvar a foto facial.");
+      els.photoPreview.src = imageData;
+      els.photoPreview.classList.remove("d-none");
+      els.photoInfo.textContent = "Foto principal salva com embedding facial.";
+      await refreshStatus();
+      setMessage("success", "Foto principal cadastrada com sucesso.");
+    } catch (error) {
+      console.error("Erro foto biometria", error);
+      setMessage("danger", error.message || "Nao foi possivel capturar a foto. Permita a camera e tente novamente.");
+    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function recordVideo() {
+    const id = selectedId();
+    if (!id || !stream) return;
+    if (!window.MediaRecorder) {
+      setMessage("danger", "Este navegador nao permite gravar mini video. Atualize o navegador ou use Chrome/Safari recente por HTTPS.");
+      return;
+    }
+    try {
+      setMessage("info", "Gravando mini video facial por alguns segundos...");
+      const chunks = [];
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8") ? "video/webm;codecs=vp8" : "video/webm";
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 420000 });
+      const embeddings = [];
+      const fotosAuxiliares = [];
+      const validacoes = [];
+      const sampler = setInterval(async () => {
+        try {
+          const result = await detectFace();
+          embeddings.push(Array.from(result.descriptor));
+          validacoes.push({ ok: true, score: result.detection.score, ts: Date.now() });
+          if (fotosAuxiliares.length < 3) {
+            const canvas = els.canvas;
+            canvas.width = els.video.videoWidth || 640;
+            canvas.height = els.video.videoHeight || 480;
+            canvas.getContext("2d").drawImage(els.video, 0, 0, canvas.width, canvas.height);
+            fotosAuxiliares.push(canvas.toDataURL("image/jpeg", 0.72));
+          }
+        } catch (error) {
+          validacoes.push({ ok: false, erro: error.message, ts: Date.now() });
+        }
+      }, 650);
+      recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
+      const stopped = new Promise(resolve => recorder.onstop = resolve);
+      recorder.start(250);
+      await new Promise(resolve => setTimeout(resolve, 4300));
+      recorder.stop();
+      clearInterval(sampler);
+      await stopped;
+      if (!embeddings.length) throw new Error("Nenhum rosto foi detectado no mini video. Centralize o rosto e tente novamente.");
+      const videoBlob = new Blob(chunks, { type: mimeType });
+      const videoData = await blobToDataUrl(videoBlob);
+      const fotoPrincipal = fotosAuxiliares[0] || els.canvas.toDataURL("image/jpeg", 0.8);
+      const formData = new FormData();
+      formData.append("face_video_data", videoData);
+      formData.append("face_video_foto_principal", fotoPrincipal);
+      formData.append("face_video_auxiliares_json", JSON.stringify(fotosAuxiliares));
+      formData.append("face_video_embeddings_json", JSON.stringify(embeddings));
+      formData.append("face_video_validacoes_json", JSON.stringify(validacoes));
+      const response = await fetch(`/api/funcionarios/${id}/mini-video-facial`, { method: "POST", body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.erro || "Nao foi possivel salvar o mini video facial.");
+      els.videoPreview.src = URL.createObjectURL(videoBlob);
+      els.videoPreview.classList.remove("d-none");
+      els.videoInfo.textContent = `${embeddings.length} embeddings faciais salvos.`;
+      await refreshStatus();
+      setMessage("success", "Mini video e embeddings cadastrados com sucesso.");
+    } catch (error) {
+      console.error("Erro mini video biometria", error);
+      setMessage("danger", error.message || "Nao foi possivel gravar o mini video. Permita a camera e use HTTPS.");
+    }
+  }
+
+  function filterFuncionarios() {
+    const term = (els.search.value || "").trim().toLowerCase();
+    Array.from(els.select.options).forEach(option => {
+      if (!option.value) return;
+      option.hidden = term && !(option.dataset.search || "").includes(term);
+    });
+  }
+
+  async function testRecognition() {
+    if (!stream) {
+      setMessage("warning", "Ative a camera antes de testar o reconhecimento.");
+      return;
+    }
+    try {
+      const started = performance.now();
+      const result = await detectFace();
+      const canvas = els.canvas;
+      canvas.width = els.video.videoWidth || 640;
+      canvas.height = els.video.videoHeight || 480;
+      canvas.getContext("2d").drawImage(els.video, 0, 0, canvas.width, canvas.height);
+      const formData = new FormData();
+      formData.append("selfie", canvas.toDataURL("image/jpeg", 0.86));
+      const response = await fetch("/api/biometria-facial/teste", { method: "POST", body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.erro || "Teste de reconhecimento falhou.");
+      const nome = data.funcionario ? data.funcionario.nome : "Nao reconhecido";
+      els.testResult.className = data.ok ? "alert alert-success mt-3" : "alert alert-warning mt-3";
+      els.testResult.innerHTML = `<strong>${nome}</strong><br>Confiança: ${data.confianca || 0}%<br>Liveness: ${data.liveness || "amostra_unica"}<br>Nitidez: ${data.nitidez ?? "n/d"}<br>Iluminação: ${data.iluminacao ?? "n/d"}<br>Tempo: ${data.tempo_ms || Math.round(performance.now() - started)} ms`;
+      setMessage(data.ok ? "success" : "warning", data.ok ? "Reconhecimento testado com sucesso." : "Nenhum servidor reconhecido com confiança suficiente.");
+    } catch (error) {
+      console.error("Erro teste reconhecimento", error);
+      setMessage("danger", error.message || "Nao foi possivel testar o reconhecimento.");
+    }
+  }
+
+  if (!isSecureOrigin) {
+    els.httpsAlert.classList.remove("d-none");
+    els.start.disabled = true;
+  }
+
+  els.select.addEventListener("change", async () => {
+    updateStatus(selectedFuncionario());
+    try { await refreshStatus(); } catch (error) { setMessage("warning", error.message); }
+  });
+  els.search.addEventListener("input", filterFuncionarios);
+  els.start.addEventListener("click", startCamera);
+  els.photo.addEventListener("click", capturePhoto);
+  els.record.addEventListener("click", recordVideo);
+  els.test.addEventListener("click", testRecognition);
+  els.refresh.addEventListener("click", async () => {
+    try { await refreshStatus(); setMessage("success", "Status atualizado."); } catch (error) { setMessage("danger", error.message); }
+  });
+
+  if (selectedFromUrl) els.select.value = selectedFromUrl;
+  updateStatus(selectedFuncionario());
+  if (selectedFuncionario()) setMessage("info", "Funcionario selecionado. Toque em Ativar camera para solicitar permissao.");
+})();
+</script>

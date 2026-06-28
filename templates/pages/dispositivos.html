@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+  <div>
+    <h3 class="fw-bold mb-1">Dispositivos</h3>
+    <div class="text-muted">Notebooks, tablets, celulares e totens vinculados ao ponto eletrônico.</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5>Novo dispositivo</h5>
+        <form method="post" class="d-grid gap-3">{{ csrf_input()|safe }}
+          <select class="form-select form-select-lg" name="tipo" required>
+            <option value="Notebook">Notebook</option>
+            <option value="Tablet">Tablet</option>
+            <option value="Celular">Celular</option>
+            <option value="Totem">Totem</option>
+          </select>
+          <input class="form-control" name="modelo" placeholder="Modelo">
+          <input class="form-control" name="sistema_operacional" placeholder="Sistema operacional">
+          <input class="form-control" name="navegador" placeholder="Navegador">
+          <select class="form-select" name="funcionario_id">
+            <option value="">Sem funcionário vinculado</option>
+            {% for f in funcionarios_rows %}
+              <option value="{{ f.id }}">{{ f.nome }}{% if f.matricula %} - {{ f.matricula }}{% endif %}</option>
+            {% endfor %}
+          </select>
+          <input class="form-control" name="hash_dispositivo" placeholder="Hash ou identificador técnico">
+          <select class="form-select" name="situacao">
+            <option value="ativo">Ativo</option>
+            <option value="bloqueado">Bloqueado</option>
+            <option value="pendente">Pendente</option>
+          </select>
+          <button class="btn btn-primary btn-lg">Salvar dispositivo</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead><tr><th>Tipo</th><th>Modelo</th><th>Sistema</th><th>Navegador</th><th>Funcionário</th><th>Último acesso</th><th>Situação</th></tr></thead>
+          <tbody>
+            {% for d in rows %}
+            <tr>
+              <td><strong>{{ d.tipo }}</strong></td>
+              <td>{{ d.modelo or '-' }}</td>
+              <td>{{ d.sistema_operacional or '-' }}</td>
+              <td>{{ d.navegador or '-' }}</td>
+              <td>{{ d.funcionario or '-' }}</td>
+              <td>{{ d.ultimo_acesso or '-' }}</td>
+              <td>
+                {% if d.situacao == 'ativo' %}<span class="badge bg-success">Ativo</span>
+                {% elif d.situacao == 'bloqueado' %}<span class="badge bg-danger">Bloqueado</span>
+                {% else %}<span class="badge bg-secondary">{{ d.situacao }}</span>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted text-center py-4">Nenhum dispositivo cadastrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

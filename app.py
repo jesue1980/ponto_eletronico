@@ -41,7 +41,7 @@ SELFIE_DIR = os.path.join(BASE_DIR, "selfies")
 FACE_VIDEO_DIR = os.path.join(SELFIE_DIR, "videos_faciais")
 ANEXO_DIR = os.path.join(BASE_DIR, "anexos_ajustes")
 DEFAULT_SECRET_KEY = "ponto-eletronico-repp-dev"
-APP_ASSET_VERSION = "20260623.4"
+APP_ASSET_VERSION = "20260628.1"
 GEO_VALIDATION_MIN_SECONDS = 10
 GEO_VALIDATION_MAX_GAP_SECONDS = 6
 GEO_VALIDATION_MIN_READINGS = 3
@@ -793,7 +793,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS totens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
+            descricao TEXT,
             local_id INTEGER,
+            secretaria TEXT,
             latitude REAL NOT NULL,
             longitude REAL NOT NULL,
             raio_metros INTEGER NOT NULL DEFAULT 100,
@@ -818,6 +820,61 @@ def init_db():
             FOREIGN KEY (funcionario_id) REFERENCES funcionarios(id),
             FOREIGN KEY (criado_por) REFERENCES usuarios(id),
             FOREIGN KEY (desativado_por) REFERENCES usuarios(id)
+        );
+        CREATE TABLE IF NOT EXISTS dispositivos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT NOT NULL,
+            modelo TEXT,
+            sistema_operacional TEXT,
+            navegador TEXT,
+            funcionario_id INTEGER,
+            hash_dispositivo TEXT UNIQUE NOT NULL,
+            ultimo_acesso TEXT,
+            situacao TEXT NOT NULL DEFAULT 'ativo',
+            criado_em TEXT NOT NULL,
+            atualizado_em TEXT,
+            FOREIGN KEY (funcionario_id) REFERENCES funcionarios(id)
+        );
+        CREATE TABLE IF NOT EXISTS hierarquia_funcional (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            funcionario_id INTEGER NOT NULL UNIQUE,
+            chefia_id INTEGER,
+            secretario_id INTEGER,
+            rh_local_id INTEGER,
+            perfil TEXT,
+            atualizado_em TEXT NOT NULL,
+            FOREIGN KEY (funcionario_id) REFERENCES funcionarios(id),
+            FOREIGN KEY (chefia_id) REFERENCES chefias(id),
+            FOREIGN KEY (secretario_id) REFERENCES secretarios_pastas(id),
+            FOREIGN KEY (rh_local_id) REFERENCES rh_locais(id)
+        );
+        CREATE TABLE IF NOT EXISTS permissoes_modulos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            perfil TEXT NOT NULL,
+            modulo TEXT NOT NULL,
+            pode_visualizar INTEGER NOT NULL DEFAULT 1,
+            pode_criar INTEGER NOT NULL DEFAULT 0,
+            pode_editar INTEGER NOT NULL DEFAULT 0,
+            pode_excluir INTEGER NOT NULL DEFAULT 0,
+            atualizado_em TEXT NOT NULL,
+            UNIQUE(perfil, modulo)
+        );
+        CREATE TABLE IF NOT EXISTS logs_sistema (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER,
+            modulo TEXT,
+            acao TEXT NOT NULL,
+            entidade TEXT,
+            entidade_id INTEGER,
+            ip TEXT,
+            gps_json TEXT,
+            dispositivo_hash TEXT,
+            foto_path TEXT,
+            video_path TEXT,
+            embeddings_hash TEXT,
+            alteracoes_json TEXT,
+            criado_em TEXT NOT NULL,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         );
         CREATE TABLE IF NOT EXISTS auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -891,6 +948,8 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_funcionarios_rh_local ON funcionarios (rh_local_id);
         CREATE INDEX IF NOT EXISTS idx_funcionarios_chefia ON funcionarios (chefia_id);
         CREATE INDEX IF NOT EXISTS idx_funcionarios_secretario ON funcionarios (secretario_id);
+        CREATE INDEX IF NOT EXISTS idx_dispositivos_funcionario ON dispositivos (funcionario_id);
+        CREATE INDEX IF NOT EXISTS idx_logs_sistema_criado_em ON logs_sistema (criado_em);
         CREATE INDEX IF NOT EXISTS idx_compensacoes_funcionario_data ON compensacoes (funcionario_id, data);
         CREATE INDEX IF NOT EXISTS idx_usuarios_funcionario ON usuarios (funcionario_id);
         CREATE INDEX IF NOT EXISTS idx_locais_rh_ativo ON locais_trabalho (rh_local_id, ativo);
@@ -938,6 +997,18 @@ def init_db():
         add_column("funcionarios", "updated_at", "TEXT")
         add_column("funcionarios", "whatsapp", "TEXT")
         add_column("funcionarios", "receber_whatsapp", "INTEGER NOT NULL DEFAULT 0")
+        add_column("funcionarios", "papel_operacional", "TEXT NOT NULL DEFAULT 'funcionario'")
+        add_column("funcionarios", "data_nascimento", "TEXT")
+        add_column("funcionarios", "secretaria", "TEXT")
+        add_column("funcionarios", "departamento", "TEXT")
+        add_column("funcionarios", "tipo_servidor", "TEXT")
+        add_column("funcionarios", "situacao", "TEXT NOT NULL DEFAULT 'ativo'")
+        add_column("funcionarios", "escala", "TEXT")
+        add_column("locais_trabalho", "endereco", "TEXT")
+        add_column("locais_trabalho", "secretaria_responsavel", "TEXT")
+        add_column("totens", "descricao", "TEXT")
+        add_column("totens", "secretaria", "TEXT")
+        add_column("totens", "atualizado_em", "TEXT")
         add_column("chefias", "whatsapp", "TEXT")
         add_column("chefias", "receber_solicitacoes_whatsapp", "INTEGER NOT NULL DEFAULT 0")
         add_column("marcacoes", "origem", "TEXT NOT NULL DEFAULT 'original'")
@@ -1356,6 +1427,13 @@ def funcionario_status_payload(row):
         "rh_local_id": row["rh_local_id"] if "rh_local_id" in row.keys() else None,
         "chefia_id": row["chefia_id"] if "chefia_id" in row.keys() else None,
         "secretario_id": row["secretario_id"] if "secretario_id" in row.keys() else None,
+        "papel_operacional": row["papel_operacional"] if "papel_operacional" in row.keys() else "funcionario",
+        "data_nascimento": row["data_nascimento"] if "data_nascimento" in row.keys() else "",
+        "secretaria": row["secretaria"] if "secretaria" in row.keys() else "",
+        "departamento": row["departamento"] if "departamento" in row.keys() else "",
+        "tipo_servidor": row["tipo_servidor"] if "tipo_servidor" in row.keys() else "",
+        "situacao": row["situacao"] if "situacao" in row.keys() else ("ativo" if row["ativo"] else "inativo"),
+        "escala": row["escala"] if "escala" in row.keys() else "",
         "login": row["login"] if "login" in row.keys() else "",
         "perfil_acesso": row["perfil_acesso"] if "perfil_acesso" in row.keys() else "",
         "ativo": bool(row["ativo"]) if "ativo" in row.keys() else True,
@@ -2025,38 +2103,30 @@ def notificar_whatsapp_funcionario_resultado(ajuste_id, decisao, parecer):
 def nav_links(css):
     links = [
         ("dashboard", "bi-grid", "Dashboard"),
-        ("relatorios", "bi-bar-chart", "Relatórios"),
-        ("ajustes", "bi-pencil-square", "Ajustes de Ponto"),
     ]
     user = current_user()
-    if user and user["perfil"] in ("Administrador Principal", "Chefia Imediata", "Chefia imediata", "Gestor", "Secretário da Pasta", "Secretário"):
-        links.append(("batidas_pendentes", "bi-clock-history", "Aprovações da Chefia"))
-    if user and user["funcionario_id"]:
-        links.insert(1, ("registrar_ponto", "bi-fingerprint", "Registrar ponto"))
     if user and user["perfil"] in ("Administrador Principal", "RH Local"):
         links += [
-            ("funcionarios", "bi-person-vcard", "Funcionários"),
-            ("locais", "bi-geo-alt", "Locais de Trabalho"),
+            ("funcionarios", "bi-people", "Pessoas"),
+            ("biometria_facial", "bi-person-bounding-box", "Biometria Facial"),
         ]
-    if user and user["perfil"] == "RH Local":
+    if user:
+        links.append(("registrar_ponto", "bi-fingerprint", "Ponto Eletrônico"))
+    if user and user["perfil"] in ("Administrador Principal", "RH Local"):
         links += [
-            ("jornadas", "bi-calendar2-week", "Horários de Trabalho"),
+            ("locais", "bi-geo-alt", "Locais"),
+            ("totens", "bi-tablet", "Totens"),
+            ("dispositivos", "bi-phone", "Dispositivos"),
+            ("hierarquia", "bi-diagram-3", "Hierarquia"),
         ]
+    links.append(("ajustes", "bi-pencil-square", "Solicitações"))
+    if user and user["perfil"] in ("Administrador Principal", "Chefia Imediata", "Chefia imediata", "Gestor", "Secretário da Pasta", "Secretário"):
+        links.append(("batidas_pendentes", "bi-clock-history", "Aprovações"))
+    links.append(("relatorios", "bi-bar-chart", "Relatórios"))
     if user and user["perfil"] == "Administrador Principal":
         links += [
-            ("jornadas", "bi-calendar2-week", "Horários de Trabalho"),
-            ("chefias", "bi-person-check", "Chefias"),
-            ("rh_locais", "bi-people", "RH Local"),
-            ("secretarios", "bi-briefcase", "Secretários"),
-            ("justificativas", "bi-chat-square-text", "Justificativas"),
-            ("empresas", "bi-building", "Empresas"),
-            ("totens", "bi-tablet", "Totens"),
-            ("usuarios", "bi-person-gear", "Usuários"),
-            ("permissoes", "bi-key", "Permissões"),
-            ("whatsapp_configuracao", "bi-whatsapp", "WhatsApp"),
-            ("central_notificacoes", "bi-send", "Central de Notificações"),
-            ("configuracoes", "bi-gear", "Configurações"),
             ("auditoria", "bi-shield-lock", "Auditoria"),
+            ("configuracoes", "bi-gear", "Configurações"),
         ]
     return "".join(f'<a class="{css}" href="{url_for(endpoint)}"><i class="bi {icon}"></i> {label}</a>' for endpoint, icon, label in links)
 
@@ -2891,8 +2961,21 @@ def locais():
     user = current_user()
     if request.method == "POST":
         rh_local_id = user["rh_local_id"] if user["perfil"] == "RH Local" else (request.form.get("rh_local_id") or None)
-        execute("INSERT INTO locais_trabalho (empresa_id, rh_local_id, nome, latitude, longitude, raio_metros) VALUES (?, ?, ?, ?, ?, ?)",
-                (request.form["empresa_id"], rh_local_id, request.form["nome"], request.form["latitude"], request.form["longitude"], request.form["raio_metros"]))
+        execute(
+            """INSERT INTO locais_trabalho
+               (empresa_id, rh_local_id, nome, endereco, latitude, longitude, raio_metros, secretaria_responsavel)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                request.form["empresa_id"],
+                rh_local_id,
+                request.form["nome"],
+                request.form.get("endereco"),
+                request.form["latitude"],
+                request.form["longitude"],
+                request.form["raio_metros"],
+                request.form.get("secretaria_responsavel"),
+            ),
+        )
         audit("criar", "locais_trabalho", detalhes={"nome": request.form["nome"]})
         return redirect(url_for("locais"))
     rh_rows = query("SELECT * FROM rh_locais WHERE ativo = 1 ORDER BY nome")
@@ -2917,15 +3000,18 @@ def totens():
     if request.method == "POST":
         ativo = 1 if request.form.get("ativo") == "1" else 0
         execute(
-            """INSERT INTO totens (nome, local_id, latitude, longitude, raio_metros, ativo, criado_em)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO totens (nome, descricao, local_id, secretaria, latitude, longitude, raio_metros, ativo, criado_em, atualizado_em)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 request.form["nome"],
+                request.form.get("descricao"),
                 request.form.get("local_id") or None,
+                request.form.get("secretaria"),
                 request.form["latitude"],
                 request.form["longitude"],
                 request.form["raio_metros"],
                 ativo,
+                now_iso(),
                 now_iso(),
             ),
         )
@@ -2938,6 +3024,73 @@ def totens():
            ORDER BY t.ativo DESC, t.nome"""
     )
     return page_template("pages/totens.html", title="Totens", rows=rows, locais_rows=locais_rows)
+
+
+@app.route("/dispositivos", methods=["GET", "POST"])
+@login_required
+@perfil_required("Administrador Principal", "RH Local")
+def dispositivos():
+    user = current_user()
+    if request.method == "POST":
+        funcionario_id = request.form.get("funcionario_id") or None
+        if funcionario_id and not funcionario_admin_row(funcionario_id, user):
+            return page("<div class='alert alert-danger'>Funcionário fora do escopo permitido.</div>", title="Dispositivos"), 403
+        raw_hash = request.form.get("hash_dispositivo") or f"{request.form.get('tipo','')}-{request.form.get('modelo','')}-{uuid.uuid4().hex}"
+        hash_dispositivo = hashlib.sha256(raw_hash.encode("utf-8")).hexdigest()
+        execute(
+            """INSERT OR REPLACE INTO dispositivos
+               (id, tipo, modelo, sistema_operacional, navegador, funcionario_id, hash_dispositivo, ultimo_acesso, situacao, criado_em, atualizado_em)
+               VALUES ((SELECT id FROM dispositivos WHERE hash_dispositivo = ?), ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT criado_em FROM dispositivos WHERE hash_dispositivo = ?), ?), ?)""",
+            (
+                hash_dispositivo,
+                request.form["tipo"],
+                request.form.get("modelo"),
+                request.form.get("sistema_operacional"),
+                request.form.get("navegador"),
+                funcionario_id,
+                hash_dispositivo,
+                request.form.get("ultimo_acesso") or now_iso(),
+                request.form.get("situacao") or "ativo",
+                hash_dispositivo,
+                now_iso(),
+                now_iso(),
+            ),
+        )
+        audit("salvar", "dispositivos", detalhes={"tipo": request.form["tipo"], "funcionario_id": funcionario_id})
+        return redirect(url_for("dispositivos"))
+    funcionarios_rows = allowed_funcionarios_for_user(user)
+    rows = query(
+        """SELECT d.*, f.nome funcionario, f.matricula
+           FROM dispositivos d
+           LEFT JOIN funcionarios f ON f.id = d.funcionario_id
+           ORDER BY d.ultimo_acesso DESC, d.id DESC"""
+    )
+    return page_template("pages/dispositivos.html", title="Dispositivos", rows=rows, funcionarios_rows=funcionarios_rows)
+
+
+@app.route("/hierarquia")
+@login_required
+@perfil_required("Administrador Principal", "RH Local")
+def hierarquia():
+    user = current_user()
+    params = []
+    filtro = "WHERE f.ativo = 1"
+    if user["perfil"] == "RH Local" and user["rh_local_id"]:
+        filtro += " AND f.rh_local_id = ?"
+        params.append(user["rh_local_id"])
+    rows = query(
+        f"""SELECT f.id, f.nome, f.matricula, f.cargo, f.papel_operacional, f.secretaria, f.departamento,
+                   rh.nome rh_local, c.nome chefia, sp.nome secretario, sp.pasta secretario_pasta,
+                   (SELECT COUNT(*) FROM funcionarios sub WHERE sub.chefia_id = f.chefia_id AND sub.ativo = 1 AND f.papel_operacional IN ('chefia_imediata', 'gestor')) subordinados
+            FROM funcionarios f
+            LEFT JOIN rh_locais rh ON rh.id = f.rh_local_id
+            LEFT JOIN chefias c ON c.id = f.chefia_id
+            LEFT JOIN secretarios_pastas sp ON sp.id = f.secretario_id
+            {filtro}
+            ORDER BY f.nome""",
+        params,
+    )
+    return page_template("pages/hierarquia.html", title="Hierarquia", rows=rows)
 
 
 @app.route("/configuracoes")
@@ -3138,6 +3291,9 @@ def funcionarios():
         senha_nova = request.form.get("senha", "")
         confirmar_senha = request.form.get("confirmar_senha", "")
         perfil_acesso = request.form.get("perfil_acesso", "Funcionário")
+        papel_operacional = request.form.get("papel_operacional") or "funcionario"
+        if request.form.get("papel_operacional"):
+            perfil_acesso = perfil_from_papel_operacional(papel_operacional)
         jornada_form, erro_jornada = jornada_funcionario_from_form(request.form)
         if not login_novo or not senha_nova or not confirmar_senha or not perfil_acesso:
             return page("<div class='alert alert-danger'>Informe login, senha, confirmação de senha e perfil de acesso.</div><a class='btn btn-primary' href='{{ url_for(\"funcionarios\") }}'>Voltar</a>", title="Funcionários")
@@ -3169,45 +3325,23 @@ def funcionarios():
                 ),
             )
             jornada_id = one("SELECT id FROM jornadas WHERE nome = ?", (nome_jornada,))["id"]
-        tem_foto_camera = bool(request.form.get("face_image_data"))
-        tem_video_camera = bool(request.form.get("face_video_data"))
-        permite_totem_facial = 1 if request.form.get("permite_totem_facial") == "1" or tem_foto_camera or tem_video_camera else 0
-        reconhecimento_facial_ativo = 1 if request.form.get("reconhecimento_facial_ativo") == "1" or tem_foto_camera or tem_video_camera else 0
+        permite_totem_facial = 1 if request.form.get("permite_totem_facial") == "1" else 0
+        reconhecimento_facial_ativo = 1 if request.form.get("reconhecimento_facial_ativo") == "1" else 0
         execute("""INSERT INTO funcionarios
                    (empresa_id, local_id, jornada_id, nome, cpf, matricula, cargo, email, telefone, data_admissao,
                     rh_local_id, chefia_id, secretario_id, reconhecimento_facial_ativo, permite_totem_facial,
-                    permitir_totem_facial, whatsapp, receber_whatsapp, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    permitir_totem_facial, whatsapp, receber_whatsapp, papel_operacional, data_nascimento, secretaria,
+                    departamento, tipo_servidor, situacao, escala, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (request.form["empresa_id"], request.form["local_id"], jornada_id, request.form["nome"],
                  request.form["cpf"], request.form["matricula"], request.form.get("cargo"), request.form.get("email"),
                  request.form.get("telefone"), request.form.get("data_admissao"), rh_local_id,
                  request.form.get("chefia_id"), request.form.get("secretario_id"), reconhecimento_facial_ativo,
                  permite_totem_facial, permite_totem_facial, normalizar_whatsapp(request.form.get("whatsapp")),
-                 1 if request.form.get("receber_whatsapp") == "1" else 0, now_iso()))
+                 1 if request.form.get("receber_whatsapp") == "1" else 0, papel_operacional,
+                 request.form.get("data_nascimento"), request.form.get("secretaria"), request.form.get("departamento"),
+                 request.form.get("tipo_servidor"), request.form.get("situacao") or "ativo", request.form.get("escala"), now_iso()))
         novo_funcionario = one("SELECT * FROM funcionarios WHERE matricula = ?", (request.form["matricula"],))
-        foto_base_path = save_foto_base_data_url(request.form.get("face_image_data"), novo_funcionario["id"])
-        face_embedding = request.form.get("face_image_embedding_json") or None
-        if not foto_base_path:
-            foto_base_path = save_foto_base(request.files.get("foto_base"), novo_funcionario["id"])
-        if foto_base_path:
-            execute(
-                """UPDATE funcionarios
-                   SET foto_base_path = ?,
-                       face_image_path = ?,
-                       foto_facial_cadastrada = 1,
-                       reconhecimento_facial_ativo = 1,
-                       permite_totem_facial = 1,
-                       permitir_totem_facial = 1,
-                       face_embedding = COALESCE(?, face_embedding),
-                       face_embeddings_json = COALESCE(?, face_embeddings_json),
-                       updated_at = ?
-                   WHERE id = ?""",
-                (foto_base_path, foto_base_path, face_embedding, face_embedding, now_iso(), novo_funcionario["id"]),
-            )
-        if request.form.get("face_video_data"):
-            _biometria, erro_biometria, status_biometria = salvar_biometria_video_funcionario(novo_funcionario["id"], user, request.form)
-            if erro_biometria:
-                app.logger.warning("Cadastro facial por mini video bloqueado no novo funcionario %s: %s", novo_funcionario["id"], erro_biometria)
         locais_autorizados = set(request.form.getlist("locais_autorizados"))
         locais_autorizados.add(str(request.form["local_id"]))
         for local_autorizado_id in locais_autorizados:
@@ -3260,6 +3394,7 @@ def funcionarios_api_rows():
     user = current_user()
     sql = """SELECT f.id, f.empresa_id, f.local_id, f.jornada_id, f.nome, f.cpf, f.matricula, f.cargo,
                     f.email, f.telefone, f.whatsapp, f.receber_whatsapp, f.data_admissao, f.rh_local_id, f.chefia_id, f.secretario_id,
+                    f.papel_operacional, f.data_nascimento, f.secretaria, f.departamento, f.tipo_servidor, f.situacao, f.escala,
                     f.ativo, f.foto_base_path, f.foto_facial_cadastrada,
                     f.mini_video_cadastrado, f.reconhecimento_facial_ativo, f.permite_totem_facial,
                     f.permitir_totem_facial, f.face_image_path, f.face_video_path, f.updated_at,
@@ -3298,6 +3433,19 @@ def funcionarios_api_rows():
 @perfil_required("Administrador Principal", "RH Local")
 def api_funcionarios():
     return {"funcionarios": [funcionario_status_payload(row) for row in funcionarios_api_rows()]}
+
+
+@app.route("/biometria-facial")
+@login_required
+@perfil_required("Administrador Principal", "RH Local")
+def biometria_facial():
+    funcionarios = [funcionario_status_payload(row) for row in funcionarios_api_rows() if row["ativo"]]
+    return page_template(
+        "pages/biometria_facial.html",
+        title="Biometria Facial",
+        funcionarios_rows=funcionarios,
+        funcionario_id=request.args.get("funcionario_id", ""),
+    )
 
 
 @app.route("/api/funcionarios/<int:funcionario_id>")
@@ -3354,6 +3502,16 @@ def sync_locais_autorizados(funcionario_id, local_principal_id, locais_ids):
         )
 
 
+def perfil_from_papel_operacional(papel):
+    mapa = {
+        "funcionario": "FuncionÃ¡rio",
+        "chefia_imediata": "Chefia Imediata",
+        "gestor": "Gestor",
+        "rh": "RH Local",
+    }
+    return mapa.get((papel or "funcionario").strip(), "FuncionÃ¡rio")
+
+
 def sync_chefia_com_funcionario(funcionario_id, usuario_id=None):
     funcionario = one("SELECT * FROM funcionarios WHERE id = ?", (funcionario_id,))
     if not funcionario:
@@ -3406,6 +3564,9 @@ def api_funcionario_editar(funcionario_id):
     login = request.form.get("login", "").strip()
     senha = request.form.get("senha", "")
     perfil = request.form.get("perfil_acesso", "Funcionário")
+    papel_operacional = request.form.get("papel_operacional") or (funcionario["papel_operacional"] if "papel_operacional" in funcionario.keys() else "funcionario")
+    if request.form.get("papel_operacional"):
+        perfil = perfil_from_papel_operacional(papel_operacional)
     usuario = one("SELECT * FROM usuarios WHERE funcionario_id = ? ORDER BY id LIMIT 1", (funcionario_id,))
     if login:
         usuario_login = one("SELECT id FROM usuarios WHERE login = ? AND funcionario_id <> ?", (login, funcionario_id))
@@ -3443,14 +3604,15 @@ def api_funcionario_editar(funcionario_id):
         jornada_id = one("SELECT id FROM jornadas WHERE nome = ?", (nome_jornada,))["id"]
 
     rh_local_id = user["rh_local_id"] if user["perfil"] == "RH Local" else (request.form.get("rh_local_id") or None)
-    reconhecimento = 1 if request.form.get("reconhecimento_facial_ativo") == "1" else 0
-    permite_totem = 1 if request.form.get("permite_totem_facial") == "1" else 0
+    reconhecimento = 1 if request.form.get("reconhecimento_facial_ativo") == "1" else int(funcionario["reconhecimento_facial_ativo"] or 0)
+    permite_totem = 1 if request.form.get("permite_totem_facial") == "1" else int((funcionario["permite_totem_facial"] or funcionario["permitir_totem_facial"] or 0))
     execute(
         """UPDATE funcionarios
            SET empresa_id = ?, local_id = ?, jornada_id = ?, nome = ?, cpf = ?, matricula = ?,
                cargo = ?, email = ?, telefone = ?, data_admissao = ?, rh_local_id = ?,
                chefia_id = ?, secretario_id = ?, reconhecimento_facial_ativo = ?,
-               permite_totem_facial = ?, permitir_totem_facial = ?, whatsapp = ?, receber_whatsapp = ?, updated_at = ?
+               permite_totem_facial = ?, permitir_totem_facial = ?, whatsapp = ?, receber_whatsapp = ?, papel_operacional = ?,
+               data_nascimento = ?, secretaria = ?, departamento = ?, tipo_servidor = ?, situacao = ?, escala = ?, updated_at = ?
            WHERE id = ?""",
         (
             request.form["empresa_id"],
@@ -3471,6 +3633,13 @@ def api_funcionario_editar(funcionario_id):
             permite_totem,
             normalizar_whatsapp(request.form.get("whatsapp")),
             1 if request.form.get("receber_whatsapp") == "1" else 0,
+            papel_operacional,
+            request.form.get("data_nascimento"),
+            request.form.get("secretaria"),
+            request.form.get("departamento"),
+            request.form.get("tipo_servidor"),
+            request.form.get("situacao") or "ativo",
+            request.form.get("escala"),
             now_iso(),
             funcionario_id,
         ),
@@ -3637,6 +3806,30 @@ def funcionario_biometria_facial_video(funcionario_id):
         "embeddings": biometria["embeddings"],
         "funcionario": funcionario_api_payload(funcionario_id),
     }
+
+
+@app.route("/api/biometria-facial/teste", methods=["POST"])
+@login_required
+@perfil_required("Administrador Principal", "RH Local")
+def api_biometria_facial_teste():
+    inicio = datetime.now()
+    selfie = request.form.get("selfie") or request.form.get("face_image_data")
+    if not selfie:
+        return {"ok": False, "erro": "Capture uma foto para testar o reconhecimento."}, 400
+    funcionario, similaridade, diagnostico = reconhecer_funcionario_por_foto(selfie, min_similarity=45)
+    tempo_ms = int((datetime.now() - inicio).total_seconds() * 1000)
+    payload = {
+        "ok": bool(funcionario),
+        "funcionario": dict(funcionario) if funcionario else None,
+        "confianca": round(float(similaridade or 0), 2),
+        "liveness": "amostra_unica",
+        "nitidez": None,
+        "iluminacao": None,
+        "tempo_ms": tempo_ms,
+        "diagnostico": diagnostico,
+    }
+    audit("testar_reconhecimento_facial", "biometrias_faciais", detalhes={"ok": payload["ok"], "confianca": payload["confianca"], "tempo_ms": tempo_ms})
+    return payload
 
 
 def build_report(start, end, funcionario_id):
